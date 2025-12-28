@@ -77,6 +77,13 @@
     /* Ensure math text color is bright */
     .mathfield .ML__math, .mathfield .ML__content { color:#ffffff !important; }
     .ML__keyboard { backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-radius: 12px; }
+    /* Bottom-sheet layout for MathLive keyboard on mobile */
+    .ML__keyboard { position: fixed !important; left: 0 !important; right: 0 !important; bottom: 0 !important; width: 100% !important; max-height: 50dvh !important; z-index: 800 !important; box-shadow: 0 -8px 24px rgba(0,0,0,0.28); border-top: 1px solid var(--glass-border); background: var(--glass-bg); }
+    /* Dismiss button to close keyboard */
+    .kb-dismiss { position: fixed; right: 12px; bottom: 56px; z-index: 850; padding: 8px 12px; border-radius: 999px; border: 1px solid var(--glass-border); background: rgba(255,255,255,0.12); color: var(--text); box-shadow: 0 6px 18px rgba(0,0,0,0.18); display:none; }
+    .kb-dismiss:hover { background: var(--accent); color: #fff; }
+    /* Container uses dynamic viewport height */
+    .container { min-height: 100dvh; }
     /* تحسين وضوح مربعات الكسر (Placeholders) في الوضع الداكن */
     .mathfield .ML__placeholder { background: transparent !important; box-shadow: none; border-radius: 6px; }
     .mathfield .ML__placeholder.ML__empty { 
@@ -254,6 +261,8 @@
     <source src="audio/applause.wav" type="audio/wav" />
   </audio>
   <div class="overlay" id="overlay"></div>
+  <!-- Mobile keyboard dismiss button -->
+  <button id="kbDismiss" class="kb-dismiss" aria-label="dismiss">تم</button>
   
 
   <script>
@@ -276,7 +285,7 @@
     const STR = {
       ar: {
         title: '🧮 نهايات المثلثات باستخدام ماكلورين',
-        desc: 'ركز فقط على sin وcos وtan عندما x → 0',
+        desc: 'ركز فقط على sin , cos , tan عندما x → 0',
         exprLabel: 'التعبير (فقط sin وcos وtan والمتغير x)',
         examples: 'أمثلة: sin(x)/x ، tan(x)/x ، (1-cos(x))/x**2',
         ansLabel: 'النص',
@@ -296,7 +305,7 @@
         newQ: '🎲 سؤال جديد',
         hintBtn: '💡 تلميح',
         keypad: { frac: 'كسر', pow: 'أس', sqrt: 'جذر √' },
-        guide: `📘 **دليل كتابة المعادلات الرياضية في Python:**\n\n🔹 **الدوال المثلثية في الرياضيات → في Python**\n| الرياضيات | الصيغة الصحيحة في Python |\n|---------------------|-----------------------------------|\n| sin(x) → \`sin(x)\`\n| cos²(x) → \`(cos(x))**2\`\n| tan³(x) → \`(tan(x))**3\`\n| (1 - cos(2x))/x² → \`(1 - cos(2*x)) / x**2\`\n| √cos(x) → \`(cos(x))**0.5\`\n| π → \`pi\`\n\n🔹 **العمليات الأساسية**\n- الجمع: \`a + b\` (مثال: \`x + 2\`)\n- الطرح: \`a - b\` (مثال: \`x - 2\`)\n- الضرب: \`a * b\` (مثال: \`3*sin(x)\`, \`x*(x+1)\`)\n- القسمة/الكسور: \`a / b\` (مثال: \`(1 - cos(2*x)) / x**2\`)\n- الأس: \`a**n\` (مثال: \`x**3\`)\n\n🔹 **ملاحظات مهمة**\n- استخدم \`sin(x)\`, \`cos(x)\`, \`tan(x)\`.\n- استخدم \`**\` للأسس.\n- استخدم \`pi\` بدلًا من \u03c0.\n- ضع الأقواس للعمليات المركبة.`
+        guide: `📘 دليل سريع للإدخال الرياضي\n\n- اكتب الرموز اللاتينية: sin, cos, tan والمتغير x داخل الحقل.\n- زر "كسر" يُدخل قالب كسر حقيقي: يظهر مربعان للبسط والمقام.\n  • استخدم الأسهم أو Tab للتنقل بين المربعات.\n- القسمة العادية: a/b — والأس: a^{n} أو زر "أس".\n- الجذر: زر "جذر √" — و π: زر "π".\n- الأقواس: زر "( )" لإنشاء أقواس جاهزة.\n- أمثلة سريعة:\n  • sin(x)/x\n  • (1 - cos(2*x)) / x**2\n  • \\frac{1 - \\cos(2x)}{x^2}\n- بعد إدراج الكسر ينتقل المؤشر تلقائيًا إلى البسط لتسهيل الكتابة.\n- في وضع التدريب: استخدم "🎲 سؤال جديد" و"💡 تلميح" لعرض توسعات ماكلورين، وراقب الدقة والسلسلة في HUD.`
       },
       en: {
         title: '🧮 Trig Limits via Maclaurin',
@@ -589,6 +598,8 @@
       const vars = theme==='light'? LIGHT : DARK; for (const k in vars) document.documentElement.style.setProperty(k, vars[k]);
       document.getElementById('themeBtn').textContent = theme === 'light' ? '🌙' : '☀️';
       document.getElementById('guide').textContent = STR[lang].guide;
+      // Configure MathLive keyboard to manual mode to prevent fullscreen takeover
+      try { const mf = document.getElementById('ansMath'); if (mf && mf.setOptions) mf.setOptions({ virtualKeyboardMode: 'manual' }); } catch {}
       // ensure math field is cleanly initialized
       try { const mf = document.getElementById('ansMath'); if (mf && mf.setValue) mf.setValue('', {suppressChangeNotifications: true}); } catch {}
       // default answer visibility
@@ -606,6 +617,8 @@
       });
       // apply language texts now
       applyLang();
+      // mobile keyboard UX hooks
+      setupKeyboardUX();
       // show menu tip once near the answer menu
       try {
         const seen = localStorage.getItem('menuTipSeen');
@@ -624,6 +637,28 @@
         if ((e.ctrlKey || e.metaKey) && (e.key==='n' || e.key==='N')) { e.preventDefault(); newQuestion(); }
       });
     })();
+    // --- Mobile keyboard UX: dismiss button, padding, outside click ---
+    function setupKeyboardUX(){
+      const cont = document.querySelector('.container');
+      const mf = document.getElementById('ansMath'); const dismiss = document.getElementById('kbDismiss');
+      if (!cont || !mf || !dismiss) return;
+      let kbOpen = false;
+      function keyboardHeight(){
+        const vv = window.visualViewport; if (vv) { const h = Math.max(0, window.innerHeight - vv.height); return Math.max(220, Math.min(h, Math.round(window.innerHeight*0.5))); }
+        return Math.round(window.innerHeight*0.4);
+      }
+      function openKB(){ kbOpen = true; const h = keyboardHeight(); cont.style.paddingBottom = (h + 16) + 'px'; dismiss.style.display = 'block'; dismiss.style.bottom = (h + 12) + 'px'; }
+      function closeKB(){ kbOpen = false; cont.style.paddingBottom = ''; dismiss.style.display = 'none'; try{ mf.executeCommand && mf.executeCommand('hideVirtualKeyboard'); }catch{} }
+      // Focus/blur handlers
+      mf.addEventListener('focusin', openKB);
+      mf.addEventListener('blur', closeKB);
+      // Dismiss button
+      dismiss.addEventListener('click', function(){ try{ mf.blur(); }catch{} closeKB(); });
+      // Outside click to blur
+      document.addEventListener('pointerdown', function(e){ if (!kbOpen) return; const kbd = document.querySelector('.ML__keyboard'); const withinField = mf.contains(e.target); const withinKB = kbd && kbd.contains(e.target); if (!withinField && !withinKB) { try{ mf.blur(); }catch{} closeKB(); } }, true);
+      // Recompute on viewport changes
+      if (window.visualViewport) window.visualViewport.addEventListener('resize', function(){ if (kbOpen) openKB(); });
+    }
 
     // Smooth audio play (fade-in)
     function smoothPlay(id, fadeMs=600){
