@@ -270,8 +270,7 @@
     <source src="audio/applause.wav" type="audio/wav" />
   </audio>
   <div class="overlay" id="overlay"></div>
-  <!-- Mobile keyboard dismiss button -->
-  <button id="kbDismiss" class="kb-dismiss" aria-label="dismiss">تم</button>
+  <!-- Mobile keyboard dismiss button removed as requested -->
   
 
   <script>
@@ -638,20 +637,6 @@
         window.mathVirtualKeyboard.container = document.getElementById('math-field-container');
         // تفعيل تخطيط كامل بالمعاملات
         window.mathVirtualKeyboard.layouts = 'full';
-        // إظهار/إخفاء زر "تم" وفق ظهور الكيبورد فعليًا
-        try {
-          window.mathVirtualKeyboard.addEventListener('geometrychange', function(){
-            const dismissBtn = document.getElementById('kbDismiss');
-            const rect = window.mathVirtualKeyboard.boundingRect || {};
-            if (dismissBtn) {
-              dismissBtn.style.display = rect.height > 0 ? 'block' : 'none';
-              if (rect.height > 0) {
-                // ارفع الزر فوق الكيبورد مباشرة مع مراعاة الـ safe-area
-                dismissBtn.style.bottom = `calc(${Math.max(0, rect.height)}px + env(safe-area-inset-bottom) + 10px)`;
-              }
-            }
-          });
-        } catch {}
       } } catch {}
       // show menu tip once near the answer menu
       try {
@@ -675,7 +660,7 @@
     function setupKeyboardUX(){
       const cont = document.querySelector('.container');
       const mf = document.getElementById('ansMath'); const dismiss = document.getElementById('kbDismiss'); const tx = document.getElementById('ansText');
-      if (!cont || !mf || !dismiss) return;
+      if (!cont || !mf) return;
       let kbOpen = false;
       let kbEl = null;
       function openKB(){
@@ -748,13 +733,15 @@
           // اترك التوزيع الطبيعي دون أي قياسات أو حواشٍ إضافية
         });
       }
-      // Dismiss button
-      dismiss.addEventListener('click', function(){
-        try { const v = mf && mf.getValue ? String(mf.getValue('latex')||'') : ''; if (tx) tx.value = v; } catch{}
-        mf.style.display = 'none'; if (tx) tx.style.display='';
-        try{ mf.blur(); }catch{}
-        closeKB();
-      });
+      // Dismiss button (removed)
+      if (dismiss) {
+        dismiss.addEventListener('click', function(){
+          try { const v = mf && mf.getValue ? String(mf.getValue('latex')||'') : ''; if (tx) tx.value = v; } catch{}
+          mf.style.display = 'none'; if (tx) tx.style.display='';
+          try{ mf.blur(); }catch{}
+          closeKB();
+        });
+      }
       const kbCloseBtn = document.getElementById('kbClose');
       if (kbCloseBtn) kbCloseBtn.addEventListener('click', function(){
         try { document.activeElement.blur(); } catch{}
