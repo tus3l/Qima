@@ -203,7 +203,7 @@
             <div id="ansMenuTip" class="ans-menu-tip"></div>
           </div>
           <div id="ansHelp" class="muted" style="margin:4px 0 6px 0;">يمكنك إضافة الكسور من هنا</div>
-          <math-field id="ansMath" class="mathfield" virtual-keyboard-mode="onfocus" smart-fence placeholder="أدخل الإجابة باللاتكس أو استخدم الأزرار"></math-field>
+          <math-field id="ansMath" class="mathfield" virtual-keyboard-mode="manual" smart-fence placeholder="أدخل الإجابة باللاتكس أو استخدم الأزرار"></math-field>
           <div class="keypad" id="ansPad">
             <button class="mini-btn" data-ins="frac" title="إدراج كسر">كسر</button>
             <button class="mini-btn" data-ins="pow" title="إدراج أس">أس</button>
@@ -312,7 +312,7 @@
         desc: 'Focus only on sin, cos, tan as x → 0',
         exprLabel: 'Expression (only sin, cos, tan with x)',
         examples: 'Examples: sin(x)/x, tan(x)/x, (1-cos(x))/x**2',
-        ansLabel: 'For more features like matrices, open this menu',
+        ansLabel: 'Text',
         check: 'Check',
         orderLabel: 'Series order',
         orderVal: (n)=>`n=${n}`,
@@ -642,35 +642,58 @@
       const mf = document.getElementById('ansMath'); const dismiss = document.getElementById('kbDismiss');
       if (!cont || !mf || !dismiss) return;
       let kbOpen = false;
+      let kbEl = null;
       function keyboardHeight(){
         const vv = window.visualViewport; if (vv) { const h = Math.max(0, window.innerHeight - vv.height); return Math.max(220, Math.min(h, Math.round(window.innerHeight*0.5))); }
         return Math.round(window.innerHeight*0.4);
       }
+      function applyKBLayout(h){
+        const height = Math.max(220, h || keyboardHeight());
+        cont.style.paddingBottom = (height + 16) + 'px';
+        dismiss.style.display = 'block';
+        dismiss.style.bottom = `calc(${height}px + env(safe-area-inset-bottom) + 12px)`;
+      }
+      function measureAndApplyKBLayout(){
+        try {
+          kbEl = document.querySelector('.ML__keyboard') || kbEl;
+          const h = (kbEl && kbEl.offsetHeight) ? kbEl.offsetHeight : keyboardHeight();
+          applyKBLayout(h);
+        } catch { applyKBLayout(keyboardHeight()); }
+      }
       function openKB(){
         kbOpen = true;
-        const h = keyboardHeight();
-        cont.style.paddingBottom = (h + 16) + 'px';
-        dismiss.style.display = 'block';
-        dismiss.style.bottom = `calc(${h}px + env(safe-area-inset-bottom) + 12px)`;
-        // Show MathLive virtual keyboard explicitly (mobile/coarse pointer only)
-        try {
-          const isMobile = (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) || ('ontouchstart' in window) || (Math.min(window.innerWidth, window.innerHeight) < 900);
-          if (isMobile) {
-            if (mf.showVirtualKeyboard) mf.showVirtualKeyboard();
-            else if (mf.executeCommand) mf.executeCommand('showVirtualKeyboard');
-          }
-        } catch {}
+        // طبّق التخطيط مبدئيًا ثم قِس ارتفاع الكيبورد الفعلي عند ظهوره
+        applyKBLayout(keyboardHeight());
       }
       function closeKB(){ kbOpen = false; cont.style.paddingBottom = ''; dismiss.style.display = 'none'; try{ if (mf.hideVirtualKeyboard) mf.hideVirtualKeyboard(); else if (mf.executeCommand) mf.executeCommand('hideVirtualKeyboard'); }catch{} }
-      // Focus/blur handlers
-      mf.addEventListener('focusin', openKB);
+      // لا تفتح تلقائيًا عند التركيز (نص عادي). أغلق عند فقدان التركيز.
       mf.addEventListener('blur', closeKB);
+      // فتح الكيبورد الرياضي عند الضغط على زر المنيو
+      const menuBtn = document.getElementById('ansMenuBtn');
+      if (menuBtn) {
+        menuBtn.addEventListener('click', function(){
+          try { mf.focus(); } catch{}
+          openKB();
+          try {
+            if (mf.showVirtualKeyboard) mf.showVirtualKeyboard();
+            else if (mf.executeCommand) mf.executeCommand('showVirtualKeyboard');
+          } catch{}
+          // بعد إظهار الكيبورد، قِس ارتفاع العنصر الفعلي وطبّق الحاشية
+          setTimeout(function(){ if (kbOpen) measureAndApplyKBLayout(); }, 60);
+        });
+      }
       // Dismiss button
       dismiss.addEventListener('click', function(){ try{ mf.blur(); }catch{} closeKB(); });
       // Outside click to blur
       document.addEventListener('pointerdown', function(e){ if (!kbOpen) return; const kbd = document.querySelector('.ML__keyboard'); const withinField = mf.contains(e.target); const withinKB = kbd && kbd.contains(e.target); if (!withinField && !withinKB) { try{ mf.blur(); }catch{} closeKB(); } }, true);
       // Recompute on viewport changes
-      if (window.visualViewport) window.visualViewport.addEventListener('resize', function(){ if (kbOpen) openKB(); });
+      if (window.visualViewport) window.visualViewport.addEventListener('resize', function(){ if (kbOpen) measureAndApplyKBLayout(); });
+      window.addEventListener('orientationchange', function(){ if (kbOpen) setTimeout(measureAndApplyKBLayout, 120); });
+      // راقب إضافة عنصر الكيبورد إلى DOM لقياس ارتفاعه بدقة
+      try {
+        const obs = new MutationObserver(function(){ if (kbOpen) measureAndApplyKBLayout(); });
+        obs.observe(document.body, { childList: true, subtree: true });
+      } catch {}
     }
 
     // Smooth audio play (fade-in)
