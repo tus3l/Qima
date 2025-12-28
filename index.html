@@ -81,11 +81,11 @@
     /* Ensure math text color is bright */
     .mathfield .ML__math, .mathfield .ML__content { color:#ffffff !important; }
     /* إيقاف أي تمويه للخلفية خلف كيبورد MathLive */
-    .ML__keyboard { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; border-radius: 0; box-shadow: none; background: var(--glass-bg); }
+    .ML__keyboard { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; border-radius: 0; box-shadow: none; background: transparent !important; }
     /* إزالة فرض التموضع السفلي الثابت لإرجاع السلوك الطبيعي للكيبورد */
     /* إزالة قيود الـ slot والـ body لاستعادة المكان الطبيعي للكيبورد */
     /* Dismiss button to close keyboard */
-    .kb-dismiss { position: fixed; right: 12px; bottom: 56px; z-index: 850; padding: 8px 12px; border-radius: 999px; border: 1px solid var(--glass-border); background: rgba(255,255,255,0.12); color: var(--text); box-shadow: 0 6px 18px rgba(0,0,0,0.18); display:none; }
+    .kb-dismiss { position: fixed; right: 12px; bottom: 56px; z-index: 10000; padding: 8px 12px; border-radius: 999px; border: 1px solid var(--glass-border); background: rgba(255,255,255,0.12); color: var(--text); box-shadow: 0 6px 18px rgba(0,0,0,0.18); display:none; }
     .kb-dismiss:hover { background: var(--accent); color: #fff; }
     /* Container uses dynamic viewport height */
     .container { min-height: 100dvh; }
@@ -643,7 +643,13 @@
           window.mathVirtualKeyboard.addEventListener('geometrychange', function(){
             const dismissBtn = document.getElementById('kbDismiss');
             const rect = window.mathVirtualKeyboard.boundingRect || {};
-            if (dismissBtn) dismissBtn.style.display = rect.height > 0 ? 'block' : 'none';
+            if (dismissBtn) {
+              dismissBtn.style.display = rect.height > 0 ? 'block' : 'none';
+              if (rect.height > 0) {
+                // ارفع الزر فوق الكيبورد مباشرة مع مراعاة الـ safe-area
+                dismissBtn.style.bottom = `calc(${Math.max(0, rect.height)}px + env(safe-area-inset-bottom) + 10px)`;
+              }
+            }
           });
         } catch {}
       } } catch {}
