@@ -664,29 +664,23 @@
       if (!cont || !mf || !dismiss) return;
       let kbOpen = false;
       let kbEl = null;
-      function keyboardHeight(){
-        const vv = window.visualViewport; if (vv) { const h = Math.max(0, window.innerHeight - vv.height); return Math.max(220, Math.min(h, Math.round(window.innerHeight*0.5))); }
-        return Math.round(window.innerHeight*0.4);
-      }
-      function applyKBLayout(h){
-        const height = Math.max(220, h || keyboardHeight());
-        cont.style.paddingBottom = (height + 16) + 'px';
-        dismiss.style.display = 'block';
-        dismiss.style.bottom = `calc(${height}px + env(safe-area-inset-bottom) + 12px)`;
-      }
-      function measureAndApplyKBLayout(){
-        try {
-          kbEl = document.querySelector('.ML__keyboard') || kbEl;
-          const h = (kbEl && kbEl.offsetHeight) ? kbEl.offsetHeight : keyboardHeight();
-          applyKBLayout(h);
-        } catch { applyKBLayout(keyboardHeight()); }
-      }
       function openKB(){
         kbOpen = true;
         // إظهار زر الإغلاق فقط وترك MathLive يضبط مكان الكيبورد طبيعيًا
-        try { const kbClose = document.getElementById('kbClose'); if (kbClose) kbClose.style.display='block'; } catch{}
+        try {
+          const kbClose = document.getElementById('kbClose');
+          if (kbClose) kbClose.style.display='block';
+          if (dismiss) dismiss.style.display = 'block';
+        } catch{}
       }
-      function closeKB(){ kbOpen = false; cont.style.paddingBottom = ''; dismiss.style.display = 'none'; try { const kbClose = document.getElementById('kbClose'); if (kbClose) kbClose.style.display='none'; } catch{} try{ if (mf.hideVirtualKeyboard) mf.hideVirtualKeyboard(); else if (mf.executeCommand) mf.executeCommand('hideVirtualKeyboard'); }catch{} }
+      function closeKB(){
+        kbOpen = false;
+        try { if (dismiss) dismiss.style.display = 'none'; } catch{}
+        try { const kbClose = document.getElementById('kbClose'); if (kbClose) kbClose.style.display='none'; } catch{}
+        try{ if (mf.hideVirtualKeyboard) mf.hideVirtualKeyboard(); else if (mf.executeCommand) mf.executeCommand('hideVirtualKeyboard'); }catch{}
+      }
+      // اجعل الدوال متاحة للمفاتيح المصغّرة أيضًا
+      try { window.openMathKB = openKB; window.closeMathKB = closeKB; } catch{}
       // لا تفتح تلقائيًا عند التركيز (نص عادي). أغلق عند فقدان التركيز.
       mf.addEventListener('blur', closeKB);
       // فتح الكيبورد الرياضي عند الضغط على زر المنيو
@@ -706,7 +700,7 @@
             if (mf.showVirtualKeyboard) mf.showVirtualKeyboard();
             else if (mf.executeCommand) mf.executeCommand('showVirtualKeyboard');
           } catch{}
-          // اترك التوزيع الطبيعي دون قياس ح height
+          // اترك التوزيع الطبيعي دون أي قياسات أو حواشٍ إضافية
         });
       }
       // Dismiss button
@@ -741,14 +735,7 @@
           try{ mf.blur(); }catch{} closeKB(); try { if (tx) tx.focus(); } catch{}
         }
       }, true);
-      // Recompute on viewport changes
-      if (window.visualViewport) window.visualViewport.addEventListener('resize', function(){ if (kbOpen) measureAndApplyKBLayout(); });
-      window.addEventListener('orientationchange', function(){ if (kbOpen) setTimeout(measureAndApplyKBLayout, 120); });
-      // راقب إضافة عنصر الكيبورد إلى DOM لقياس ارتفاعه بدقة
-      try {
-        const obs = new MutationObserver(function(){ if (kbOpen) measureAndApplyKBLayout(); });
-        obs.observe(document.body, { childList: true, subtree: true });
-      } catch {}
+      // لا حاجة لأي قياسات/مراقبات: نعتمد على تموضع MathLive الطبيعي
     }
 
     // Smooth audio play (fade-in)
@@ -926,9 +913,8 @@
           const tx = document.getElementById('ansText'); const mf = document.getElementById('ansMath');
           if (tx) tx.style.display='none'; mf.style.display='';
           // افتح الكيبورد الرياضي وطبّق الحاشية بعد الإظهار
-          if (typeof openKB === 'function') openKB();
+          if (window.openMathKB) window.openMathKB();
           try { if (mf.showVirtualKeyboard) mf.showVirtualKeyboard(); else if (mf.executeCommand) mf.executeCommand('showVirtualKeyboard'); } catch{}
-          setTimeout(function(){ try { const vv = window.visualViewport; const kbd = document.querySelector('.ML__keyboard'); if (kbd && kbd.offsetHeight) { const dismiss = document.getElementById('kbDismiss'); const cont = document.querySelector('.container'); const h = Math.max(220, kbd.offsetHeight); cont.style.paddingBottom = (h+16)+'px'; dismiss.style.display='block'; dismiss.style.bottom = `calc(${h}px + env(safe-area-inset-bottom) + 12px)`; } } catch{} }, 60);
         } catch{}
         handleInsMath(b.dataset.ins);
       });
