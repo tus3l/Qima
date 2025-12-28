@@ -203,7 +203,7 @@
             <div id="ansMenuTip" class="ans-menu-tip"></div>
           </div>
           <div id="ansHelp" class="muted" style="margin:4px 0 6px 0;">يمكنك إضافة الكسور من هنا</div>
-          <math-field id="ansMath" class="mathfield" virtual-keyboard-mode="manual" smart-fence placeholder="أدخل الإجابة باللاتكس أو استخدم الأزرار"></math-field>
+          <math-field id="ansMath" class="mathfield" virtual-keyboard-mode="onfocus" smart-fence placeholder="أدخل الإجابة باللاتكس أو استخدم الأزرار"></math-field>
           <div class="keypad" id="ansPad">
             <button class="mini-btn" data-ins="frac" title="إدراج كسر">كسر</button>
             <button class="mini-btn" data-ins="pow" title="إدراج أس">أس</button>
@@ -368,6 +368,7 @@
       }
       const ah = document.getElementById('ansHelp'); if (ah) ah.textContent = s.ansHelp;
       const mt = document.getElementById('ansMenuTip'); if (mt) mt.textContent = s.menuTip;
+      const kb = document.getElementById('kbDismiss'); if (kb) kb.textContent = (lang==='ar'? 'تم' : 'Done');
       // Placeholder for MathLive
       const mf = document.getElementById('ansMath'); if (mf && s.ansPlaceholder) mf.setAttribute('placeholder', s.ansPlaceholder);
       // Difficulty / training controls
@@ -598,8 +599,6 @@
       const vars = theme==='light'? LIGHT : DARK; for (const k in vars) document.documentElement.style.setProperty(k, vars[k]);
       document.getElementById('themeBtn').textContent = theme === 'light' ? '🌙' : '☀️';
       document.getElementById('guide').textContent = STR[lang].guide;
-      // Configure MathLive keyboard to manual mode to prevent fullscreen takeover
-      try { const mf = document.getElementById('ansMath'); if (mf && mf.setOptions) mf.setOptions({ virtualKeyboardMode: 'manual' }); } catch {}
       // ensure math field is cleanly initialized
       try { const mf = document.getElementById('ansMath'); if (mf && mf.setValue) mf.setValue('', {suppressChangeNotifications: true}); } catch {}
       // default answer visibility
@@ -652,14 +651,17 @@
         const h = keyboardHeight();
         cont.style.paddingBottom = (h + 16) + 'px';
         dismiss.style.display = 'block';
-        dismiss.style.bottom = (h + 12) + 'px';
+        dismiss.style.bottom = `calc(${h}px + env(safe-area-inset-bottom) + 12px)`;
         // Show MathLive virtual keyboard explicitly (mobile/coarse pointer only)
         try {
           const isMobile = (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) || ('ontouchstart' in window) || (Math.min(window.innerWidth, window.innerHeight) < 900);
-          if (isMobile && mf.executeCommand) mf.executeCommand('showVirtualKeyboard');
+          if (isMobile) {
+            if (mf.showVirtualKeyboard) mf.showVirtualKeyboard();
+            else if (mf.executeCommand) mf.executeCommand('showVirtualKeyboard');
+          }
         } catch {}
       }
-      function closeKB(){ kbOpen = false; cont.style.paddingBottom = ''; dismiss.style.display = 'none'; try{ mf.executeCommand && mf.executeCommand('hideVirtualKeyboard'); }catch{} }
+      function closeKB(){ kbOpen = false; cont.style.paddingBottom = ''; dismiss.style.display = 'none'; try{ if (mf.hideVirtualKeyboard) mf.hideVirtualKeyboard(); else if (mf.executeCommand) mf.executeCommand('hideVirtualKeyboard'); }catch{} }
       // Focus/blur handlers
       mf.addEventListener('focusin', openKB);
       mf.addEventListener('blur', closeKB);
