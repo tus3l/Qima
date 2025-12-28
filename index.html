@@ -647,7 +647,18 @@
         const vv = window.visualViewport; if (vv) { const h = Math.max(0, window.innerHeight - vv.height); return Math.max(220, Math.min(h, Math.round(window.innerHeight*0.5))); }
         return Math.round(window.innerHeight*0.4);
       }
-      function openKB(){ kbOpen = true; const h = keyboardHeight(); cont.style.paddingBottom = (h + 16) + 'px'; dismiss.style.display = 'block'; dismiss.style.bottom = (h + 12) + 'px'; }
+      function openKB(){
+        kbOpen = true;
+        const h = keyboardHeight();
+        cont.style.paddingBottom = (h + 16) + 'px';
+        dismiss.style.display = 'block';
+        dismiss.style.bottom = (h + 12) + 'px';
+        // Show MathLive virtual keyboard explicitly (mobile/coarse pointer only)
+        try {
+          const isMobile = (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) || ('ontouchstart' in window) || (Math.min(window.innerWidth, window.innerHeight) < 900);
+          if (isMobile && mf.executeCommand) mf.executeCommand('showVirtualKeyboard');
+        } catch {}
+      }
       function closeKB(){ kbOpen = false; cont.style.paddingBottom = ''; dismiss.style.display = 'none'; try{ mf.executeCommand && mf.executeCommand('hideVirtualKeyboard'); }catch{} }
       // Focus/blur handlers
       mf.addEventListener('focusin', openKB);
