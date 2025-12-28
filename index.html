@@ -205,8 +205,12 @@
       <div class="row">
         <div>
           <label id="exprLabel">التعبير (فقط sin, cos, tan و المتغير x)</label>
-          <input id="expr" value="tan(x)/x" />
+          <div id="exprFieldContainer" class="mathfield-container">
+            <input id="exprText" value="tan(x)/x" class="textfield" placeholder="أدخل السؤال كنص (يدعم لاتكس)" />
+            <math-field id="exprMath" class="mathfield" virtual-keyboard-mode="manual" smart-fence style="display:none" placeholder="أدخل السؤال باللاتكس أو استخدم الأزرار"></math-field>
+          </div>
           <div class="muted" id="examples">أمثلة: sin(x)/x ، tan(x)/x ، (1-cos(x))/x**2</div>
+          <div class="muted" id="renderNote" style="margin-top:6px;">يتم عرض السؤال بالرموز الرياضية تلقائيًا</div>
           <div id="questionDisplay" class="glass-card center" style="display:none; margin-top:8px;"></div>
           
         </div>
@@ -290,14 +294,39 @@
     let lang = 'ar';
     let mode = 'solve';
     let lastValue = null;
+    let kbTarget = null; // 'ans' or 'expr' to route keyboard ownership
     let reactionList = [];
     let reactionMessages = null; // رسائل اختيارية تُحمَّل من ملف reactions/messages.json
     let audioCtx = null, applauseBuffer = null;
     // تعاريف مبكرة لقيم HUD لضمان توفرها قبل أي استدعاء
     let score = 0, attempts = [], streak = 0, correct = 0, total = 0;
     const REACTION_MSG_DEFAULT = {
-      ar: { '1': 'مستحيل حلك كذا !!', '2': '!!!', '3': 'الواضح ما براسك علم', '4': 'حاول تفكر ذا حل انسان ؟' },
-      en: { '1': 'No way that’s correct!!', '2': '!!!', '3': 'Clearly needs more study', '4': 'Think it through like a human?' }
+      ar: {
+        '1': 'مستحيل حلك كذا !!',
+        '2': 'مدري شقول الصراحه حلك ****',
+        '3': 'الواضح ما براسك علم',
+        '4': 'حاول تفكر ذا حل انسان ؟',
+        '5': 'هذا انت ونت تقول بذاكر ونت كذاب',
+        '6': 'لو الحل الجاي خطاء بتنجلد',
+        '7': 'متأكد انت دارس',
+        '8': 'ياخي انت كيف كذا؟',
+        '9': 'كذا كثير !!',
+        '10': '',
+        '11': 'تفكر و نفكر و تفكر واخر شي ذا حلك !'
+      },
+      en: {
+        '1': 'No way that’s correct!!',
+        '2': 'Honestly… I’ve got no words.',
+        '3': 'Clearly needs more study',
+        '4': 'Think it through like a human?',
+        '5': "This is you saying you'll study, but lying.",
+        '6': 'Better get the next one right.',
+        '7': 'Are you sure you studied?',
+        '8': 'How did you even do that?',
+        '9': 'That’s a bit much!',
+        '10': '',
+        '11': 'You think and think… and that’s your answer!'
+      }
     };
 
     const STR = {
@@ -306,6 +335,9 @@
         desc: 'ركز فقط على sin , cos , tan عندما x → 0',
         exprLabel: 'التعبير (فقط sin وcos وtan والمتغير x)',
         examples: 'أمثلة: sin(x)/x ، tan(x)/x ، (1-cos(x))/x**2',
+        renderNote: 'يتم عرض السؤال بالرموز الرياضية تلقائيًا',
+        exprPlaceholderText: 'أدخل السؤال كنص (يدعم لاتكس)',
+        exprPlaceholderMath: 'أدخل السؤال باللاتكس أو استخدم الأزرار',
         ansLabel: 'النص',
         check: 'تحقق',
         orderLabel: 'رتبة السلسلة',
@@ -323,13 +355,16 @@
         newQ: '🎲 سؤال جديد',
         hintBtn: '💡 تلميح',
         keypad: { frac: 'كسر', pow: 'أس', sqrt: 'جذر √' },
-        guide: `📘 دليل سريع للإدخال الرياضي\n\n- اكتب الرموز اللاتينية: sin, cos, tan والمتغير x داخل الحقل.\n- زر "كسر" يُدخل قالب كسر حقيقي: يظهر مربعان للبسط والمقام.\n  • استخدم الأسهم أو Tab للتنقل بين المربعات.\n- القسمة العادية: a/b — والأس: a^{n} أو زر "أس".\n- الجذر: زر "جذر √" — و π: زر "π".\n- الأقواس: زر "( )" لإنشاء أقواس جاهزة.\n- أمثلة سريعة:\n  • sin(x)/x\n  • (1 - cos(2*x)) / x**2\n  • \\frac{1 - \\cos(2x)}{x^2}\n- بعد إدراج الكسر ينتقل المؤشر تلقائيًا إلى البسط لتسهيل الكتابة.\n- في وضع التدريب: استخدم "🎲 سؤال جديد" و"💡 تلميح" لعرض توسعات ماكلورين، وراقب الدقة والسلسلة في HUD.`
+        guide: `📘 دليل سريع للإدخال الرياضي\n\nملاحظة: إن ظهر السؤال برموز رياضية (مثل \dfrac، الأس، الجذر)، فهذا عرضٌ لتوضيح الشكل. اكتب أو عدّل السؤال في الحقل العلوي، ويمكنك فتح الكيبورد الرياضي من القائمة.\n\n- اكتب الرموز اللاتينية: sin, cos, tan والمتغير x داخل الحقل.\n- زر "كسر" يُدخل قالب كسر حقيقي: يظهر مربعان للبسط والمقام.\n  • استخدم الأسهم أو Tab للتنقل بين المربعات.\n- القسمة العادية: a/b — والأس: a^{n} أو زر "أس".\n- الجذر: زر "جذر √" — و π: زر "π".\n- الأقواس: زر "( )" لإنشاء أقواس جاهزة.\n- أمثلة سريعة:\n  • sin(x)/x\n  • (1 - cos(2*x)) / x**2\n  • \\frac{1 - \\cos(2x)}{x^2}\n- بعد إدراج الكسر ينتقل المؤشر تلقائيًا إلى البسط لتسهيل الكتابة.\n- في وضع التدريب: استخدم "🎲 سؤال جديد" و"💡 تلميح" لعرض توسعات ماكلورين، وراقب الدقة والسلسلة في HUD.`
       },
       en: {
         title: '🧮 Trig Limits via Maclaurin',
         desc: 'Focus only on sin, cos, tan as x → 0',
         exprLabel: 'Expression (only sin, cos, tan with x)',
         examples: 'Examples: sin(x)/x, tan(x)/x, (1-cos(x))/x**2',
+        renderNote: 'Question is rendered with math symbols automatically',
+        exprPlaceholderText: 'Enter the question as text (LaTeX supported)',
+        exprPlaceholderMath: 'Enter the question in LaTeX or use buttons',
         ansLabel: 'Text',
         check: 'Check',
         orderLabel: 'Series order',
@@ -347,7 +382,7 @@
         newQ: '🎲 New Question',
         hintBtn: '💡 Hint',
         keypad: { frac: 'Frac', pow: 'Pow', sqrt: '√' },
-        guide: `📘 Guide: Use sin(x), cos(x), tan(x); power with **; pi for π; add parentheses for complex operations.`
+        guide: `📘 Guide\n\nNote: If the question appears with mathematical symbols (like \\dfrac, powers, sqrt), that’s just visual rendering. Enter or edit the question in the top field and open the math keyboard from the menu.\n\n- Use sin(x), cos(x), tan(x); power with **; pi for π; add parentheses for complex operations.`
       }
     };
 
@@ -369,6 +404,7 @@
       const exprLabel = (lang==='ar') ? 'التعبير (فقط <span class="latin">sin, cos, tan</span> والمتغير x)' : 'Expression (only <span class="latin">sin, cos, tan</span> with x)';
       document.getElementById('exprLabel').innerHTML = exprLabel;
       document.getElementById('examples').textContent = s.examples;
+      const rn = document.getElementById('renderNote'); if (rn && s.renderNote) rn.textContent = s.renderNote;
       document.getElementById('ansLabel').textContent = s.ansLabel;
       document.getElementById('check').textContent = s.check;
       const seg = document.getElementById('modeSeg');
@@ -390,6 +426,9 @@
       // Placeholder for MathLive
       const mf = document.getElementById('ansMath'); if (mf && s.ansPlaceholder) mf.setAttribute('placeholder', s.ansPlaceholder);
       const tx = document.getElementById('ansText'); if (tx) tx.setAttribute('placeholder', (lang==='ar'? 'أدخل الإجابة كنص (يدعم لاتكس)' : 'Enter answer as text (LaTeX supported)'));
+      // Expression field placeholders
+      const em = document.getElementById('exprMath'); if (em && s.exprPlaceholderMath) em.setAttribute('placeholder', s.exprPlaceholderMath);
+      const et = document.getElementById('exprText'); if (et && s.exprPlaceholderText) et.setAttribute('placeholder', s.exprPlaceholderText);
       // Difficulty / training controls
       const dBtns = document.querySelectorAll('#diffSeg .seg-btn'); if (dBtns && dBtns.length===3 && s.diff) { dBtns[0].textContent = s.diff.easy; dBtns[1].textContent = s.diff.med; dBtns[2].textContent = s.diff.hard; }
       const newQB = document.getElementById('newQ'); if (newQB && s.newQ) newQB.textContent = s.newQ;
@@ -412,6 +451,23 @@
                  .replace(/cos\s*\(/g, 'Math.cos(')
                  .replace(/tan\s*\(/g, 'Math.tan(');
       return expr;
+    }
+
+    // احصل على قيمة "التعبير" من الحقل النّصي أو الرياضي وحوّل LaTeX إلى نص إن لزم
+    function getExprInput(){
+      const em = document.getElementById('exprMath');
+      const et = document.getElementById('exprText');
+      let v = '';
+      try {
+        const mfVisible = em && em.style.display !== 'none';
+        if (mfVisible && em.getValue) v = String(em.getValue('latex')||'');
+        else v = String(et ? et.value||'' : '');
+      } catch { v = String(et ? et.value||'' : ''); }
+      v = String(v||'').trim();
+      if (/\\[A-Za-z]+/.test(v)) {
+        try { v = latexToJSExpr(v).replace(/Math\./g, ''); } catch {}
+      }
+      return v;
     }
 
     function evalAt(expr, xval) {
@@ -449,7 +505,7 @@
 
     function randomReactionWithIndex() {
       if (reactionList.length === 0) {
-        const idx = 1 + Math.floor(Math.random()*4);
+        const idx = 1 + Math.floor(Math.random()*11);
         return { src: `reactions/reaction${idx}.jpg`, idx };
       }
       const pick = reactionList[Math.floor(Math.random()*reactionList.length)];
@@ -469,10 +525,20 @@
       emojiBurst();
     }
 
+    function orderedReactionWithIndex(){
+      let failCount = 0;
+      try { failCount = attempts.filter(x=>x===0).length; } catch{}
+      const maxIdx = 11; // عدد الرياكشنات المتوفر افتراضياً
+      // تدوير: 1→2→…→11 ثم العودة إلى 1
+      const base = failCount >= 1 ? failCount : 1;
+      let idx = ((base - 1) % maxIdx) + 1;
+      if (!Number.isFinite(idx) || idx < 1) idx = 1;
+      return { src: `reactions/reaction${idx}.jpg`, idx };
+    }
     function showFailure(value) {
       const r = document.getElementById('result');
       const s = STR[lang];
-      const rr = randomReactionWithIndex();
+      const rr = orderedReactionWithIndex();
       const msgMap = (reactionMessages && reactionMessages[lang]) ? reactionMessages[lang] : REACTION_MSG_DEFAULT[lang];
       const phrase = (msgMap && msgMap[String(rr.idx)]) ? msgMap[String(rr.idx)] : s.fail;
       r.classList.remove('success-card'); r.classList.add('fail-card');
@@ -554,7 +620,7 @@
       const r = document.getElementById('result');
       let html = '';
       html += `<p><strong>${(lang==='ar'?'المعادلة:':'Expression:')}</strong> ${expr}</p>`;
-      html += `<p><strong>${(lang==='ar'?'توسيعات ماكلوران:':'Maclaurin expansions:')}</strong></p>`;
+      html += `<p><strong>${(lang==='ar'?'توسيعات ماكلورين:':'Maclaurin expansions:')}</strong></p>`;
       const n = parseInt(document.getElementById('order').value);
       const expansions = [sinSeriesLatex(n), cosSeriesLatex(n), tanSeriesLatex(n)];
       html += `<div>${expansions.map(e=>`<div>${e}</div>`).join('')}</div>`;
@@ -570,7 +636,7 @@
     }
 
     document.getElementById('check').addEventListener('click', () => {
-      const expr = document.getElementById('expr').value.trim();
+      const expr = getExprInput();
       const ansMf = document.getElementById('ansMath'); const ansTx = document.getElementById('ansText');
       let ans = '';
       try {
@@ -682,6 +748,7 @@
       applyLang();
       // mobile keyboard UX hooks
       setupKeyboardUX();
+      setupExprUX();
       // اربط حاوية الكيبورد بالعنصر الأب المحدد
       try { if (window.mathVirtualKeyboard) { 
         window.mathVirtualKeyboard.container = document.getElementById('math-field-container');
@@ -725,6 +792,7 @@
       if (!cont || !mf) return;
       let kbOpen = false;
       let kbEl = null;
+      let suppressOpenUntil = 0; // لمنع إعادة الفتح مباشرة بعد الإغلاق
       function openKB(){
         kbOpen = true;
         // إظهار زر الإغلاق فقط وترك MathLive يضبط مكان الكيبورد طبيعيًا
@@ -736,9 +804,13 @@
       }
       function closeKB(){
         kbOpen = false;
+        suppressOpenUntil = Date.now() + 600;
         try { if (dismiss) dismiss.style.display = 'none'; } catch{}
         try { const kbClose = document.getElementById('kbClose'); if (kbClose) kbClose.style.display='none'; } catch{}
-        try{ if (mf.hideVirtualKeyboard) mf.hideVirtualKeyboard(); else if (mf.executeCommand) mf.executeCommand('hideVirtualKeyboard'); }catch{}
+        try{
+          if (mf.hideVirtualKeyboard) mf.hideVirtualKeyboard(); else if (mf.executeCommand) mf.executeCommand('hideVirtualKeyboard');
+          if (window.mathVirtualKeyboard) window.mathVirtualKeyboard.visible = false;
+        }catch{}
       }
       // اجعل الدوال متاحة للمفاتيح المصغّرة أيضًا
       try { window.openMathKB = openKB; window.closeMathKB = closeKB; } catch{}
@@ -747,6 +819,8 @@
       // افتح الكيبورد مباشرة عند تركيز math-field (عندما يكون ظاهرًا)
       mf.addEventListener('focus', function(){
         try {
+          if (Date.now() < suppressOpenUntil) return;
+          kbTarget = 'ans';
           openKB();
           if (window.mathVirtualKeyboard) window.mathVirtualKeyboard.visible = true;
           if (mf.showVirtualKeyboard) mf.showVirtualKeyboard();
@@ -764,6 +838,7 @@
             const v = String(tx.value||'');
             if (mf.setValue) mf.setValue(v, {suppressChangeNotifications:true});
             if (mf && mf.focus) mf.focus({ preventScroll: true });
+            kbTarget = 'ans';
             openKB();
             if (window.mathVirtualKeyboard) window.mathVirtualKeyboard.visible = true;
             if (mf.showVirtualKeyboard) mf.showVirtualKeyboard();
@@ -786,6 +861,7 @@
             if (mf.setValue) mf.setValue(v, {suppressChangeNotifications:true});
             if (mf && mf.focus) mf.focus({ preventScroll: true });
           } catch{}
+          kbTarget = 'ans';
           openKB();
           try {
             if (window.mathVirtualKeyboard) { window.mathVirtualKeyboard.visible = true; }
@@ -805,29 +881,98 @@
         });
       }
       const kbCloseBtn = document.getElementById('kbClose');
-      if (kbCloseBtn) kbCloseBtn.addEventListener('click', function(){
-        try { document.activeElement.blur(); } catch{}
-        try { const v = mf && mf.getValue ? String(mf.getValue('latex')||'') : ''; if (tx) tx.value = v; } catch{}
-        mf.style.display = 'none'; if (tx) tx.style.display='';
-        closeKB();
-      });
+      if (kbCloseBtn) {
+        const doClose = function(e){
+          try { if (e) { e.preventDefault(); e.stopPropagation(); } } catch{}
+          try { document.activeElement.blur(); } catch{}
+          try {
+            const amf = document.getElementById('ansMath'); const atx = document.getElementById('ansText');
+            const emf = document.getElementById('exprMath'); const etx = document.getElementById('exprText');
+            const activeMf = kbTarget === 'expr' ? emf : amf;
+            const activeTx = kbTarget === 'expr' ? etx : atx;
+            const v = activeMf && activeMf.getValue ? String(activeMf.getValue('latex')||'') : '';
+            if (activeTx) activeTx.value = v;
+            if (activeMf) activeMf.style.display = 'none'; if (activeTx) activeTx.style.display='';
+          } catch{}
+          closeKB();
+        };
+        kbCloseBtn.addEventListener('click', doClose);
+        kbCloseBtn.addEventListener('pointerdown', doClose);
+        kbCloseBtn.addEventListener('touchstart', doClose, { passive: false });
+      }
       // Outside click to blur (bubble phase + robust shadow DOM path check)
       document.addEventListener('click', function(e){
-        if (!kbOpen) return;
+        if (!(window.mathVirtualKeyboard && window.mathVirtualKeyboard.visible)) return;
         const path = (typeof e.composedPath === 'function') ? e.composedPath() : [];
         const inPath = (selector) => path.some(n => n && n.nodeType === 1 && (n.matches?.(selector) || n.closest?.(selector)));
-        const withinField = mf.contains(e.target) || inPath('#ansMath');
+        const withinField = inPath('#ansMath') || inPath('#exprMath');
         const withinKB = inPath('.ML__keyboard');
         const withinPad = inPath('#ansPad');
         const withinMenu = inPath('#ansMenu');
         const withinClose = inPath('#kbClose');
         if (!withinField && !withinKB && !withinPad && !withinMenu && !withinClose) {
-          try { const v = mf && mf.getValue ? String(mf.getValue('latex')||'') : ''; if (tx) tx.value = v; } catch{}
-          mf.style.display = 'none'; if (tx) tx.style.display='';
-          try{ mf.blur(); }catch{} closeKB();
+          try {
+            const amf = document.getElementById('ansMath'); const atx = document.getElementById('ansText');
+            const emf = document.getElementById('exprMath'); const etx = document.getElementById('exprText');
+            const activeMf = kbTarget === 'expr' ? emf : amf;
+            const activeTx = kbTarget === 'expr' ? etx : atx;
+            const v = activeMf && activeMf.getValue ? String(activeMf.getValue('latex')||'') : '';
+            if (activeTx) activeTx.value = v;
+            if (activeMf) activeMf.style.display = 'none'; if (activeTx) activeTx.style.display='';
+            try{ activeMf.blur(); }catch{}
+          } catch{}
+          closeKB();
         }
       });
       // لا حاجة لأي قياسات/مراقبات: نعتمد على تموضع MathLive الطبيعي
+    }
+
+    // تمكين نفس تجربة الكيبورد لحقل السؤال (التعبير)
+    function setupExprUX(){
+      const em = document.getElementById('exprMath');
+      const et = document.getElementById('exprText');
+      if (!em || !et) return;
+      let suppressOpenUntil = 0;
+      function openKB(){
+        try { const kbClose = document.getElementById('kbClose'); if (kbClose) kbClose.style.display='block'; } catch{}
+      }
+      function closeKB(){
+        suppressOpenUntil = Date.now() + 600;
+        try { const kbClose = document.getElementById('kbClose'); if (kbClose) kbClose.style.display='none'; } catch{}
+        try{
+          if (em.hideVirtualKeyboard) em.hideVirtualKeyboard(); else if (em.executeCommand) em.executeCommand('hideVirtualKeyboard');
+          if (window.mathVirtualKeyboard) window.mathVirtualKeyboard.visible = false;
+        }catch{}
+      }
+      em.addEventListener('blur', closeKB);
+      em.addEventListener('focus', function(){
+        try {
+          if (Date.now() < suppressOpenUntil) return;
+          kbTarget = 'expr';
+          openKB();
+          if (window.mathVirtualKeyboard) window.mathVirtualKeyboard.visible = true;
+          if (em.showVirtualKeyboard) em.showVirtualKeyboard(); else if (em.executeCommand) em.executeCommand('showVirtualKeyboard');
+        } catch{}
+      });
+      const switchToMath = function(e){
+        try { if (e && e.preventDefault) e.preventDefault(); } catch{}
+        try { et.setAttribute('readonly','readonly'); } catch{}
+        try {
+          et.style.display = 'none';
+          em.style.display = '';
+          const v = String(et.value||'');
+          if (em.setValue) em.setValue(v, {suppressChangeNotifications:true});
+          if (em && em.focus) em.focus({ preventScroll: true });
+          kbTarget = 'expr';
+          openKB();
+          if (window.mathVirtualKeyboard) window.mathVirtualKeyboard.visible = true;
+          if (em.showVirtualKeyboard) em.showVirtualKeyboard(); else if (em.executeCommand) em.executeCommand('showVirtualKeyboard');
+        } catch{}
+      };
+      et.addEventListener('pointerdown', switchToMath);
+      et.addEventListener('touchstart', switchToMath, { passive: false });
+      et.addEventListener('click', switchToMath);
+      et.addEventListener('focus', switchToMath);
     }
 
     // Smooth audio play (fade-in)
@@ -945,9 +1090,11 @@
     function newQuestion(){
       const list = BANK[difficulty] || BANK.easy;
       const q = pickRandom(list);
-      const exprEl = document.getElementById('expr');
+      const exprText = document.getElementById('exprText');
+      const exprMath = document.getElementById('exprMath');
       const ansMf = document.getElementById('ansMath');
-      exprEl.value = q; if (ansMf && ansMf.setValue) ansMf.setValue('', {suppressChangeNotifications: true});
+      exprText.value = q; if (exprMath && exprMath.setValue) exprMath.setValue('', {suppressChangeNotifications: true});
+      if (exprMath) exprMath.style.display = 'none'; if (exprText) exprText.style.display='';
       document.getElementById('result').innerHTML = '';
       document.getElementById('result').classList.remove('success-card','fail-card');
       document.getElementById('hint').style.display = 'none';
@@ -958,12 +1105,12 @@
         const card = document.getElementById('questionDisplay');
         if (card) {
           card.style.display = '';
-          const latex = toLatex(exprEl.value.trim());
+          const latex = toLatex(exprText.value.trim());
           card.innerHTML = `<div style='font-size:1.2rem'>\\(${latex}\\)</div>`;
           if (window.MathJax && MathJax.typesetPromise) MathJax.typesetPromise();
         }
       } catch{}
-      exprEl.focus();
+      exprText.focus();
     }
     // أزرار الصعوبة + سؤال جديد + تلميح
     (function bindGameControls(){
@@ -979,7 +1126,7 @@
       var hintBtn = document.getElementById('hintBtn'); if (hintBtn) hintBtn.addEventListener('click', function(){
       const hintMini = document.getElementById('hintMini');
       const hint = document.getElementById('hint');
-      const expr = document.getElementById('expr').value.trim();
+      const expr = getExprInput();
       const need = { sin: /sin\s*\(/.test(expr), cos: /cos\s*\(/.test(expr), tan: /tan\s*\(/.test(expr) };
       let html = '';
       html += `<div><strong>${(lang==='ar'?'تلميحات السلسلة:':'Series hints:')}</strong></div>`;
@@ -1016,6 +1163,7 @@
           if (tx) tx.style.display='none'; mf.style.display='';
           // افتح الكيبورد الرياضي فورًا
           if (mf && mf.focus) mf.focus({ preventScroll: true });
+          kbTarget = 'ans';
           if (window.openMathKB) window.openMathKB();
           try {
             if (window.mathVirtualKeyboard) window.mathVirtualKeyboard.visible = true;
