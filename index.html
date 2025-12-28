@@ -207,6 +207,7 @@
           <label id="exprLabel">التعبير (فقط sin, cos, tan و المتغير x)</label>
           <input id="expr" value="tan(x)/x" />
           <div class="muted" id="examples">أمثلة: sin(x)/x ، tan(x)/x ، (1-cos(x))/x**2</div>
+          <div id="questionDisplay" class="glass-card center" style="display:none; margin-top:8px;"></div>
           
         </div>
         <div id="ansBlock">
@@ -507,6 +508,46 @@
       const p2 = n>=11? [...powers,11]: powers;
       const terms = p2.map(p=>`${p===1? 'x': coeff[p]+'x^{'+p+'}'}`);
       return `\\(\\tan(x) = ${terms.join(' + ')} + \\cdots\\)`;
+    }
+    // تحويل حاصل قسمة أعلى المستوى إلى \dfrac مع تنسيق داخلي واضح
+    function toLatex(s){
+      if (!s) return '';
+      const clean = String(s).replace(/\s+/g, '');
+      // ابحث عن / على العمق 0 (خارج الأقواس) لتحويله إلى \dfrac
+      let idx = -1, depth = 0;
+      for (let i=0;i<clean.length;i++){
+        const ch = clean[i];
+        if (ch === '(') depth++;
+        else if (ch === ')') depth = Math.max(0, depth-1);
+        else if (ch === '/' && depth === 0){ idx = i; break; }
+      }
+      const convTerm = (term)=>{
+        if (!term) return '';
+        let t = term;
+        // دوال مثلثية
+        t = t.replace(/sin\(/g, '\\sin(')
+             .replace(/cos\(/g, '\\cos(')
+             .replace(/tan\(/g, '\\tan(');
+        // الأس
+        t = t.replace(/\*\*/g, '^');
+        t = t.replace(/\^(\d+)/g, '^{ $1 }');
+        // ضرب ضمني: أزل *
+        t = t.replace(/\*/g, ' ');
+        // أقواس زائدة
+        t = t.replace(/\(\)/g, '');
+        return t;
+      };
+      if (idx !== -1){
+        let num = clean.slice(0, idx);
+        let den = clean.slice(idx+1);
+        // أزل أقواس خارجية إن وجدت
+        if (num.startsWith('(') && num.endsWith(')')) num = num.slice(1, -1);
+        if (den.startsWith('(') && den.endsWith(')')) den = den.slice(1, -1);
+        const N = convTerm(num);
+        const D = convTerm(den);
+        return `\\dfrac{${N}}{${D}}`;
+      }
+      return convTerm(clean);
     }
     function showSteps(expr) {
       const s = STR[lang];
@@ -912,6 +953,16 @@
       document.getElementById('hint').style.display = 'none';
       const hm = document.getElementById('hintMini'); if (hm) hm.style.display = 'none'; hm && (hm.innerHTML = '');
       const ah = document.getElementById('ansHelp'); if (ah) ah.style.display='';
+      // عرض السؤال بشكل لاتكس منسّق
+      try {
+        const card = document.getElementById('questionDisplay');
+        if (card) {
+          card.style.display = '';
+          const latex = toLatex(exprEl.value.trim());
+          card.innerHTML = `<div style='font-size:1.2rem'>\\(${latex}\\)</div>`;
+          if (window.MathJax && MathJax.typesetPromise) MathJax.typesetPromise();
+        }
+      } catch{}
       exprEl.focus();
     }
     // أزرار الصعوبة + سؤال جديد + تلميح
