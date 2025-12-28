@@ -80,7 +80,8 @@
     /* (إزالة إخفاء التبديل ليستعيد سلوك MathLive الطبيعي) */
     /* Ensure math text color is bright */
     .mathfield .ML__math, .mathfield .ML__content { color:#ffffff !important; }
-    .ML__keyboard { backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-radius: 12px; }
+    /* إيقاف أي تمويه للخلفية خلف كيبورد MathLive */
+    .ML__keyboard { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; border-radius: 0; box-shadow: none; background: var(--glass-bg); }
     /* إزالة فرض التموضع السفلي الثابت لإرجاع السلوك الطبيعي للكيبورد */
     /* إزالة قيود الـ slot والـ body لاستعادة المكان الطبيعي للكيبورد */
     /* Dismiss button to close keyboard */
@@ -924,13 +925,9 @@
         try {
           const tx = document.getElementById('ansText'); const mf = document.getElementById('ansMath');
           if (tx) tx.style.display='none'; mf.style.display='';
-          if (mf && mf.focus) mf.focus({ preventScroll: true });
           // افتح الكيبورد الرياضي وطبّق الحاشية بعد الإظهار
           if (typeof openKB === 'function') openKB();
-          try { 
-            if (window.mathVirtualKeyboard) { window.mathVirtualKeyboard.visible = true; }
-            if (mf.showVirtualKeyboard) mf.showVirtualKeyboard(); else if (mf.executeCommand) mf.executeCommand('showVirtualKeyboard'); 
-          } catch{}
+          try { if (mf.showVirtualKeyboard) mf.showVirtualKeyboard(); else if (mf.executeCommand) mf.executeCommand('showVirtualKeyboard'); } catch{}
           setTimeout(function(){ try { const vv = window.visualViewport; const kbd = document.querySelector('.ML__keyboard'); if (kbd && kbd.offsetHeight) { const dismiss = document.getElementById('kbDismiss'); const cont = document.querySelector('.container'); const h = Math.max(220, kbd.offsetHeight); cont.style.paddingBottom = (h+16)+'px'; dismiss.style.display='block'; dismiss.style.bottom = `calc(${h}px + env(safe-area-inset-bottom) + 12px)`; } } catch{} }, 60);
         } catch{}
         handleInsMath(b.dataset.ins);
