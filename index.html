@@ -697,9 +697,11 @@
             mf.style.display = '';
             const v = tx ? String(tx.value||'') : '';
             if (mf.setValue) mf.setValue(v, {suppressChangeNotifications:true});
+            if (mf && mf.focus) mf.focus({ preventScroll: true });
           } catch{}
           openKB();
           try {
+            if (window.mathVirtualKeyboard) { window.mathVirtualKeyboard.visible = true; }
             if (mf.showVirtualKeyboard) mf.showVirtualKeyboard();
             else if (mf.executeCommand) mf.executeCommand('showVirtualKeyboard');
           } catch{}
@@ -904,18 +906,8 @@
     function handleInsMath(type){
       const mf = document.getElementById('ansMath'); if (!mf) return;
       if (type==='frac') {
-        // Insert fraction with placeholders and move focus to numerator
+        // Insert fraction with placeholders without moving focus
         mf.insert('\\frac{\\placeholder{}}{\\placeholder{}}');
-        setTimeout(()=>{
-          try{
-            if (mf.executeCommand && (mf.executeCommand('nextPlaceholder') || mf.executeCommand('moveToNextPlaceholder'))) {
-              // moved
-            } else {
-              // Fallback: send keystrokes to enter first placeholder
-              mf.keystroke('Left'); mf.keystroke('Right');
-            }
-          }catch{}
-        },0);
       }
       else if (type==='pow') mf.insert('^{ }');
       else if (type==='sqrt') mf.insert('\\sqrt{}');
@@ -932,9 +924,13 @@
         try {
           const tx = document.getElementById('ansText'); const mf = document.getElementById('ansMath');
           if (tx) tx.style.display='none'; mf.style.display='';
+          if (mf && mf.focus) mf.focus({ preventScroll: true });
           // افتح الكيبورد الرياضي وطبّق الحاشية بعد الإظهار
           if (typeof openKB === 'function') openKB();
-          try { if (mf.showVirtualKeyboard) mf.showVirtualKeyboard(); else if (mf.executeCommand) mf.executeCommand('showVirtualKeyboard'); } catch{}
+          try { 
+            if (window.mathVirtualKeyboard) { window.mathVirtualKeyboard.visible = true; }
+            if (mf.showVirtualKeyboard) mf.showVirtualKeyboard(); else if (mf.executeCommand) mf.executeCommand('showVirtualKeyboard'); 
+          } catch{}
           setTimeout(function(){ try { const vv = window.visualViewport; const kbd = document.querySelector('.ML__keyboard'); if (kbd && kbd.offsetHeight) { const dismiss = document.getElementById('kbDismiss'); const cont = document.querySelector('.container'); const h = Math.max(220, kbd.offsetHeight); cont.style.paddingBottom = (h+16)+'px'; dismiss.style.display='block'; dismiss.style.bottom = `calc(${h}px + env(safe-area-inset-bottom) + 12px)`; } } catch{} }, 60);
         } catch{}
         handleInsMath(b.dataset.ins);
