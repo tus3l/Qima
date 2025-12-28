@@ -71,6 +71,8 @@
       --ML__placeholder-background: rgba(255, 230, 109, 0.12);
       --ML__selection-background: rgba(167, 139, 250, 0.28);
       --ML__caret-color: #ffffff;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
     }
     .mathfield-container { position: relative; }
     .kb-close-btn {
@@ -768,22 +770,22 @@
         mf.style.display = 'none'; if (tx) tx.style.display='';
         closeKB();
       });
-      // Outside click to blur
-      document.addEventListener('pointerdown', function(e){
+      // Outside click to blur (bubble phase + robust shadow DOM path check)
+      document.addEventListener('click', function(e){
         if (!kbOpen) return;
-        const kbd = document.querySelector('.ML__keyboard');
-        const withinField = mf.contains(e.target);
-        const withinKB = kbd && kbd.contains(e.target);
-        const pad = document.getElementById('ansPad');
-        const menu = document.getElementById('ansMenu');
-        const withinPad = pad && pad.contains(e.target);
-        const withinMenu = menu && menu.contains(e.target);
-        if (!withinField && !withinKB && !withinPad && !withinMenu) {
+        const path = (typeof e.composedPath === 'function') ? e.composedPath() : [];
+        const inPath = (selector) => path.some(n => n && n.nodeType === 1 && (n.matches?.(selector) || n.closest?.(selector)));
+        const withinField = mf.contains(e.target) || inPath('#ansMath');
+        const withinKB = inPath('.ML__keyboard');
+        const withinPad = inPath('#ansPad');
+        const withinMenu = inPath('#ansMenu');
+        const withinClose = inPath('#kbClose');
+        if (!withinField && !withinKB && !withinPad && !withinMenu && !withinClose) {
           try { const v = mf && mf.getValue ? String(mf.getValue('latex')||'') : ''; if (tx) tx.value = v; } catch{}
           mf.style.display = 'none'; if (tx) tx.style.display='';
           try{ mf.blur(); }catch{} closeKB();
         }
-      }, true);
+      });
       // لا حاجة لأي قياسات/مراقبات: نعتمد على تموضع MathLive الطبيعي
     }
 
