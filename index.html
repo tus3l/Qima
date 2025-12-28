@@ -76,17 +76,13 @@
     .kb-close-btn { position: absolute; inset-inline-end: 8px; top: 8px; z-index: 860; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--glass-border); background: rgba(255,255,255,0.12); color: var(--text); box-shadow: 0 6px 18px rgba(0,0,0,0.18); display:none; }
     .kb-close-btn:hover { background: var(--accent); color: #fff; }
     .textfield { display:block; width:100%; min-height:52px; padding:10px 12px; border-radius:10px; border:2px solid #4A90E2; background:#ffffff; color:#000000; font-size: clamp(20px, 5vw, 24px); }
-    /* Hide MathLive built-in keyboard toggle (we use our buttons) */
-    math-field::part(virtual-keyboard-toggle) { display: none !important; }
+    /* أظهر تبديل الكيبورد الافتراضي لمزايا كاملة */
+    /* (إزالة إخفاء التبديل ليستعيد سلوك MathLive الطبيعي) */
     /* Ensure math text color is bright */
     .mathfield .ML__math, .mathfield .ML__content { color:#ffffff !important; }
     .ML__keyboard { backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-radius: 12px; }
-    /* Bottom-sheet layout for MathLive keyboard on mobile */
-    .ML__keyboard { position: fixed !important; left: 0 !important; right: 0 !important; bottom: 0 !important; width: 100% !important; max-height: 50dvh !important; z-index: 800 !important; box-shadow: 0 -8px 24px rgba(0,0,0,0.28); border-top: 1px solid var(--glass-border); background: var(--glass-bg); }
-    /* منع الكيبورد من أخذ مساحة الشاشة كاملة (slot-based) */
-    div[slot="virtual-keyboard"] { max-height: 35vh !important; position: fixed !important; bottom: 0 !important; z-index: 999999 !important; }
-    /* إجبار الموقع على التقلص عند ظهور الكيبورد بدلاً من الاختفاء */
-    body { height: 100dvh !important; overflow: hidden; }
+    /* إزالة فرض التموضع السفلي الثابت لإرجاع السلوك الطبيعي للكيبورد */
+    /* إزالة قيود الـ slot والـ body لاستعادة المكان الطبيعي للكيبورد */
     /* Dismiss button to close keyboard */
     .kb-dismiss { position: fixed; right: 12px; bottom: 56px; z-index: 850; padding: 8px 12px; border-radius: 999px; border: 1px solid var(--glass-border); background: rgba(255,255,255,0.12); color: var(--text); box-shadow: 0 6px 18px rgba(0,0,0,0.18); display:none; }
     .kb-dismiss:hover { background: var(--accent); color: #fff; }
@@ -637,7 +633,11 @@
       // mobile keyboard UX hooks
       setupKeyboardUX();
       // اربط حاوية الكيبورد بالعنصر الأب المحدد
-      try { if (window.mathVirtualKeyboard) { window.mathVirtualKeyboard.container = document.getElementById('math-field-container'); } } catch {}
+      try { if (window.mathVirtualKeyboard) { 
+        window.mathVirtualKeyboard.container = document.getElementById('math-field-container');
+        // تفعيل تخطيط كامل بالمعاملات
+        window.mathVirtualKeyboard.layouts = 'full';
+      } } catch {}
       // show menu tip once near the answer menu
       try {
         const seen = localStorage.getItem('menuTipSeen');
@@ -682,8 +682,7 @@
       }
       function openKB(){
         kbOpen = true;
-        // طبّق التخطيط مبدئيًا ثم قِس ارتفاع الكيبورد الفعلي عند ظهوره
-        applyKBLayout(keyboardHeight());
+        // إظهار زر الإغلاق فقط وترك MathLive يضبط مكان الكيبورد طبيعيًا
         try { const kbClose = document.getElementById('kbClose'); if (kbClose) kbClose.style.display='block'; } catch{}
       }
       function closeKB(){ kbOpen = false; cont.style.paddingBottom = ''; dismiss.style.display = 'none'; try { const kbClose = document.getElementById('kbClose'); if (kbClose) kbClose.style.display='none'; } catch{} try{ if (mf.hideVirtualKeyboard) mf.hideVirtualKeyboard(); else if (mf.executeCommand) mf.executeCommand('hideVirtualKeyboard'); }catch{} }
@@ -699,13 +698,12 @@
             const v = tx ? String(tx.value||'') : '';
             if (mf.setValue) mf.setValue(v, {suppressChangeNotifications:true});
           } catch{}
-          try { mf.focus(); } catch{}
           openKB();
           try {
             if (mf.showVirtualKeyboard) mf.showVirtualKeyboard();
             else if (mf.executeCommand) mf.executeCommand('showVirtualKeyboard');
           } catch{}
-          setTimeout(function(){ if (kbOpen) measureAndApplyKBLayout(); }, 60);
+          // اترك التوزيع الطبيعي دون قياس ح height
         });
       }
       // Dismiss button
@@ -905,7 +903,6 @@
     // أزرار MathLive: إدراج قوالب مباشرة داخل الحقل WYSIWYG
     function handleInsMath(type){
       const mf = document.getElementById('ansMath'); if (!mf) return;
-      mf.focus();
       if (type==='frac') {
         // Insert fraction with placeholders and move focus to numerator
         mf.insert('\\frac{\\placeholder{}}{\\placeholder{}}');
@@ -935,7 +932,6 @@
         try {
           const tx = document.getElementById('ansText'); const mf = document.getElementById('ansMath');
           if (tx) tx.style.display='none'; mf.style.display='';
-          if (mf && mf.focus) mf.focus();
           // افتح الكيبورد الرياضي وطبّق الحاشية بعد الإظهار
           if (typeof openKB === 'function') openKB();
           try { if (mf.showVirtualKeyboard) mf.showVirtualKeyboard(); else if (mf.executeCommand) mf.executeCommand('showVirtualKeyboard'); } catch{}
@@ -944,7 +940,19 @@
         handleInsMath(b.dataset.ins);
       });
       const ansMf = document.getElementById('ansMath');
-      if (ansMf) ansMf.addEventListener('keydown', function(e){ if ((e.ctrlKey || e.metaKey) && e.key === '/') { e.preventDefault(); handleInsMath('frac'); }});
+      if (ansMf) {
+        ansMf.addEventListener('keydown', function(e){
+          if ((e.ctrlKey || e.metaKey) && e.key === '/') { e.preventDefault(); handleInsMath('frac'); }
+          // عند الضغط Enter أو Escape: أغلق الكيبورد وأعد التركيز للنص
+          if (e.key === 'Enter' || e.key === 'Escape') {
+            e.preventDefault();
+            try { const tx = document.getElementById('ansText'); const mf = document.getElementById('ansMath'); const v = mf && mf.getValue ? String(mf.getValue('latex')||'') : ''; if (tx) tx.value = v; } catch{}
+            try { document.activeElement.blur(); } catch{}
+            try { if (mf.hideVirtualKeyboard) mf.hideVirtualKeyboard(); else if (mf.executeCommand) mf.executeCommand('hideVirtualKeyboard'); } catch{}
+            try { const tx = document.getElementById('ansText'); if (tx) { mf.style.display='none'; tx.style.display=''; tx.focus(); } } catch{}
+          }
+        });
+      }
     })();
 
     // أدوات مساعدة لقراءة المجموعات { ... } في LaTeX
