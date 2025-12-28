@@ -72,6 +72,9 @@
       --ML__selection-background: rgba(167, 139, 250, 0.28);
       --ML__caret-color: #ffffff;
     }
+    .mathfield-container { position: relative; }
+    .kb-close-btn { position: absolute; inset-inline-end: 8px; top: 8px; z-index: 860; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--glass-border); background: rgba(255,255,255,0.12); color: var(--text); box-shadow: 0 6px 18px rgba(0,0,0,0.18); display:none; }
+    .kb-close-btn:hover { background: var(--accent); color: #fff; }
     .textfield { display:block; width:100%; min-height:52px; padding:10px 12px; border-radius:10px; border:2px solid #4A90E2; background:#ffffff; color:#000000; font-size: clamp(20px, 5vw, 24px); }
     /* Hide MathLive built-in keyboard toggle (we use our buttons) */
     math-field::part(virtual-keyboard-toggle) { display: none !important; }
@@ -80,6 +83,10 @@
     .ML__keyboard { backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-radius: 12px; }
     /* Bottom-sheet layout for MathLive keyboard on mobile */
     .ML__keyboard { position: fixed !important; left: 0 !important; right: 0 !important; bottom: 0 !important; width: 100% !important; max-height: 50dvh !important; z-index: 800 !important; box-shadow: 0 -8px 24px rgba(0,0,0,0.28); border-top: 1px solid var(--glass-border); background: var(--glass-bg); }
+    /* منع الكيبورد من أخذ مساحة الشاشة كاملة (slot-based) */
+    div[slot="virtual-keyboard"] { max-height: 35vh !important; position: fixed !important; bottom: 0 !important; z-index: 999999 !important; }
+    /* إجبار الموقع على التقلص عند ظهور الكيبورد بدلاً من الاختفاء */
+    body { height: 100dvh !important; overflow: hidden; }
     /* Dismiss button to close keyboard */
     .kb-dismiss { position: fixed; right: 12px; bottom: 56px; z-index: 850; padding: 8px 12px; border-radius: 999px; border: 1px solid var(--glass-border); background: rgba(255,255,255,0.12); color: var(--text); box-shadow: 0 6px 18px rgba(0,0,0,0.18); display:none; }
     .kb-dismiss:hover { background: var(--accent); color: #fff; }
@@ -204,8 +211,11 @@
             <div id="ansMenuTip" class="ans-menu-tip"></div>
           </div>
           <div id="ansHelp" class="muted" style="margin:4px 0 6px 0;">يمكنك إضافة الكسور من هنا</div>
-          <input id="ansText" class="textfield" placeholder="أدخل الإجابة كنص (يدعم لاتكس)" />
-          <math-field id="ansMath" class="mathfield" virtual-keyboard-mode="manual" smart-fence style="display:none" placeholder="أدخل الإجابة باللاتكس أو استخدم الأزرار"></math-field>
+          <div id="math-field-container" class="mathfield-container">
+            <input id="ansText" class="textfield" placeholder="أدخل الإجابة كنص (يدعم لاتكس)" />
+            <math-field id="ansMath" class="mathfield" virtual-keyboard-mode="manual" smart-fence style="display:none" placeholder="أدخل الإجابة باللاتكس أو استخدم الأزرار"></math-field>
+            <button id="kbClose" class="kb-close-btn" aria-label="close">✕</button>
+          </div>
           <div class="keypad" id="ansPad">
             <button class="mini-btn" data-ins="frac" title="إدراج كسر">كسر</button>
             <button class="mini-btn" data-ins="pow" title="إدراج أس">أس</button>
@@ -626,6 +636,8 @@
       applyLang();
       // mobile keyboard UX hooks
       setupKeyboardUX();
+      // اربط حاوية الكيبورد بالعنصر الأب المحدد
+      try { if (window.mathVirtualKeyboard) { window.mathVirtualKeyboard.container = document.getElementById('math-field-container'); } } catch {}
       // show menu tip once near the answer menu
       try {
         const seen = localStorage.getItem('menuTipSeen');
@@ -672,8 +684,9 @@
         kbOpen = true;
         // طبّق التخطيط مبدئيًا ثم قِس ارتفاع الكيبورد الفعلي عند ظهوره
         applyKBLayout(keyboardHeight());
+        try { const kbClose = document.getElementById('kbClose'); if (kbClose) kbClose.style.display='block'; } catch{}
       }
-      function closeKB(){ kbOpen = false; cont.style.paddingBottom = ''; dismiss.style.display = 'none'; try{ if (mf.hideVirtualKeyboard) mf.hideVirtualKeyboard(); else if (mf.executeCommand) mf.executeCommand('hideVirtualKeyboard'); }catch{} }
+      function closeKB(){ kbOpen = false; cont.style.paddingBottom = ''; dismiss.style.display = 'none'; try { const kbClose = document.getElementById('kbClose'); if (kbClose) kbClose.style.display='none'; } catch{} try{ if (mf.hideVirtualKeyboard) mf.hideVirtualKeyboard(); else if (mf.executeCommand) mf.executeCommand('hideVirtualKeyboard'); }catch{} }
       // لا تفتح تلقائيًا عند التركيز (نص عادي). أغلق عند فقدان التركيز.
       mf.addEventListener('blur', closeKB);
       // فتح الكيبورد الرياضي عند الضغط على زر المنيو
@@ -700,6 +713,14 @@
         try { const v = mf && mf.getValue ? String(mf.getValue('latex')||'') : ''; if (tx) tx.value = v; } catch{}
         mf.style.display = 'none'; if (tx) tx.style.display='';
         try{ mf.blur(); }catch{}
+        closeKB();
+        try { if (tx) tx.focus(); } catch{}
+      });
+      const kbCloseBtn = document.getElementById('kbClose');
+      if (kbCloseBtn) kbCloseBtn.addEventListener('click', function(){
+        try { document.activeElement.blur(); } catch{}
+        try { const v = mf && mf.getValue ? String(mf.getValue('latex')||'') : ''; if (tx) tx.value = v; } catch{}
+        mf.style.display = 'none'; if (tx) tx.style.display='';
         closeKB();
         try { if (tx) tx.focus(); } catch{}
       });
