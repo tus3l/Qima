@@ -689,8 +689,39 @@
       }
       // اجعل الدوال متاحة للمفاتيح المصغّرة أيضًا
       try { window.openMathKB = openKB; window.closeMathKB = closeKB; } catch{}
-      // لا تفتح تلقائيًا عند التركيز (نص عادي). أغلق عند فقدان التركيز.
+      // أغلق عند فقدان التركيز.
       mf.addEventListener('blur', closeKB);
+      // افتح الكيبورد مباشرة عند تركيز math-field (عندما يكون ظاهرًا)
+      mf.addEventListener('focus', function(){
+        try {
+          openKB();
+          if (window.mathVirtualKeyboard) window.mathVirtualKeyboard.visible = true;
+          if (mf.showVirtualKeyboard) mf.showVirtualKeyboard();
+          else if (mf.executeCommand) mf.executeCommand('showVirtualKeyboard');
+        } catch{}
+      });
+      // تحويل تلقائي من حقل النص إلى وضع الرياضيات عند الضغط/اللمس/التركيز
+      if (tx) {
+        const switchToMath = function(e){
+          try { if (e && e.preventDefault) e.preventDefault(); } catch{}
+          try { tx.setAttribute('readonly','readonly'); } catch{}
+          try {
+            tx.style.display = 'none';
+            mf.style.display = '';
+            const v = String(tx.value||'');
+            if (mf.setValue) mf.setValue(v, {suppressChangeNotifications:true});
+            if (mf && mf.focus) mf.focus({ preventScroll: true });
+            openKB();
+            if (window.mathVirtualKeyboard) window.mathVirtualKeyboard.visible = true;
+            if (mf.showVirtualKeyboard) mf.showVirtualKeyboard();
+            else if (mf.executeCommand) mf.executeCommand('showVirtualKeyboard');
+          } catch{}
+        };
+        tx.addEventListener('pointerdown', switchToMath);
+        tx.addEventListener('touchstart', switchToMath, { passive: false });
+        tx.addEventListener('click', switchToMath);
+        tx.addEventListener('focus', switchToMath);
+      }
       // فتح الكيبورد الرياضي عند الضغط على زر المنيو
       const menuBtn = document.getElementById('ansMenuBtn');
       if (menuBtn) {
@@ -717,7 +748,6 @@
         mf.style.display = 'none'; if (tx) tx.style.display='';
         try{ mf.blur(); }catch{}
         closeKB();
-        try { if (tx) tx.focus(); } catch{}
       });
       const kbCloseBtn = document.getElementById('kbClose');
       if (kbCloseBtn) kbCloseBtn.addEventListener('click', function(){
@@ -725,7 +755,6 @@
         try { const v = mf && mf.getValue ? String(mf.getValue('latex')||'') : ''; if (tx) tx.value = v; } catch{}
         mf.style.display = 'none'; if (tx) tx.style.display='';
         closeKB();
-        try { if (tx) tx.focus(); } catch{}
       });
       // Outside click to blur
       document.addEventListener('pointerdown', function(e){
@@ -740,7 +769,7 @@
         if (!withinField && !withinKB && !withinPad && !withinMenu) {
           try { const v = mf && mf.getValue ? String(mf.getValue('latex')||'') : ''; if (tx) tx.value = v; } catch{}
           mf.style.display = 'none'; if (tx) tx.style.display='';
-          try{ mf.blur(); }catch{} closeKB(); try { if (tx) tx.focus(); } catch{}
+          try{ mf.blur(); }catch{} closeKB();
         }
       }, true);
       // لا حاجة لأي قياسات/مراقبات: نعتمد على تموضع MathLive الطبيعي
@@ -920,9 +949,13 @@
         try {
           const tx = document.getElementById('ansText'); const mf = document.getElementById('ansMath');
           if (tx) tx.style.display='none'; mf.style.display='';
-          // افتح الكيبورد الرياضي وطبّق الحاشية بعد الإظهار
+          // افتح الكيبورد الرياضي فورًا
+          if (mf && mf.focus) mf.focus({ preventScroll: true });
           if (window.openMathKB) window.openMathKB();
-          try { if (mf.showVirtualKeyboard) mf.showVirtualKeyboard(); else if (mf.executeCommand) mf.executeCommand('showVirtualKeyboard'); } catch{}
+          try {
+            if (window.mathVirtualKeyboard) window.mathVirtualKeyboard.visible = true;
+            if (mf.showVirtualKeyboard) mf.showVirtualKeyboard(); else if (mf.executeCommand) mf.executeCommand('showVirtualKeyboard');
+          } catch{}
         } catch{}
         handleInsMath(b.dataset.ins);
       });
