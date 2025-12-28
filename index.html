@@ -1,0 +1,913 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>نهايات المثلثات (x → 0)</title>
+  <style>
+    :root {
+      --bg: #0b1220; --text: #e5e7eb; --muted: #94a3b8; --accent: #a78bfa;
+      --glass-bg: rgba(17, 24, 39, 0.45); --glass-border: rgba(148, 163, 184, 0.4);
+      --wm-color: rgba(229, 231, 235, 0.06);
+    }
+    html, body { margin:0; padding:0; background:var(--bg); color:var(--text); font-family: "Cairo", system-ui, -apple-system, Segoe UI, Tahoma, Arial; transition: background 300ms ease, color 300ms ease; }
+    .bg { position: fixed; inset: 0; z-index: -1; overflow: hidden; }
+    .blob { position: absolute; width: 640px; height: 640px; border-radius: 50%;
+      filter: blur(100px); opacity: .16; animation: float 18s ease-in-out infinite;
+      pointer-events: none; mix-blend-mode: screen;
+            -webkit-mask-image: radial-gradient(closest-side, rgba(0,0,0,.9), rgba(0,0,0,0));
+              mask-image: radial-gradient(closest-side, rgba(0,0,0,.9), rgba(0,0,0,0)); }
+    .b2 { background: #a78bfa; bottom: -280px; right: -240px; animation-delay: 4s; }
+    .b3 { background: #5b7cff; top: 35%; left: -360px; animation-delay: 8s; }
+    @keyframes float { 0%, 100% { transform: translate3d(0,0,0) scale(1);} 50% { transform: translate3d(40px, -30px, 0) scale(1.08);} }
+    .container { max-width: 980px; margin: 40px auto; padding: 0 clamp(12px, 4vw, 24px); }
+    .glass-card { backdrop-filter: blur(16px) saturate(180%); -webkit-backdrop-filter: blur(16px) saturate(180%);
+      background-color: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 16px; padding: 20px; box-shadow: 0 8px 20px rgba(0,0,0,0.15); overflow:hidden; }
+    h1 { margin-top:0; font-weight:700; }
+    .row { display:flex; gap:12px; flex-wrap:wrap; }
+    .row > * { flex:1 1 300px; }
+    input, button { width: 100%; padding: 12px 14px; border-radius: 10px; border: 1px solid var(--glass-border); background: rgba(255,255,255,0.08); color: var(--text); font-size:16px; }
+    button { background: var(--accent); color: white; border: none; cursor:pointer; transition: transform 160ms ease, box-shadow 160ms ease; min-height:44px; }
+    button:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(0,0,0,0.18); }
+    .center { text-align:center; }
+    .reaction { font-size: 2rem; }
+    img.reaction-img { width: 260px; max-width: 100%; aspect-ratio: 1/1; object-fit: cover; border-radius: 12px; border: 1px solid var(--glass-border); }
+    /* Animations */
+    .fade-in { animation: fadeIn 320ms ease-out; }
+    @keyframes fadeIn { from { opacity:0; transform: translateY(8px) scale(.98);} to {opacity:1; transform: translateY(0) scale(1);} }
+    @keyframes popIn { 0%{ transform: scale(.92);} 60%{ transform: scale(1.03);} 100%{ transform: scale(1);} }
+    .reaction-img { animation: fadeIn 340ms ease-out; }
+    .topbar { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom: 16px; }
+    .toggle { display:flex; gap:8px; }
+    .icon-btn { padding:8px 12px; border-radius: 10px; border: 1px solid var(--glass-border); background: rgba(255,255,255,0.08); color: var(--text); cursor:pointer; }
+    .segmented { display:flex; gap:8px; flex-wrap:wrap; width:100%; justify-content:flex-end; }
+    .seg-btn { padding:10px 12px; border-radius:10px; border: 1px solid var(--glass-border); background: rgba(255,255,255,0.08); color: var(--text); cursor:pointer; min-height:44px; }
+    .seg-btn.active { background: var(--accent); color:white; }
+    .control { display:flex; align-items:center; gap:10px; }
+    input[type="range"] { width: 220px; accent-color: var(--accent); }
+    .btn-outline { padding:8px 12px; border-radius:10px; border:1px solid var(--glass-border); background: transparent; color: var(--text); cursor:pointer; }
+    .btn-outline:hover { background: rgba(255,255,255,0.08); }
+    .overlay { position: fixed; inset:0; pointer-events:none; }
+    .confetti { position:absolute; font-size: 22px; animation: fall 1000ms ease-in forwards; }
+    @keyframes fall { 0%{ transform: translateY(-20px) rotate(0deg); opacity:1;} 100%{ transform: translateY(120px) rotate(360deg); opacity:0;} }
+    /* لوحة إدخال مصغّرة للكسور والأس والجذر */
+    .keypad { display:flex; gap:6px; margin-top:8px; flex-wrap:wrap; }
+    .mini-btn { padding:6px 10px; border-radius:8px; border:1px solid var(--glass-border); background: rgba(255,255,255,0.08); color: var(--text); cursor:pointer; width:auto; }
+    .mini-btn:hover { background: var(--accent); color:white; }
+    .latin { direction:ltr; unicode-bidi: isolate; }
+    /* Answer-area menu + tip */
+    .ans-menu { position: relative; display:inline-block; margin: 6px 0; }
+    .ans-menu-btn { width: 36px; height: 36px; border-radius: 10px; border:1px solid var(--glass-border); background: rgba(255,255,255,0.08); color: var(--text); display:flex; align-items:center; justify-content:center; font-size:18px; cursor:pointer; }
+    .ans-menu-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(0,0,0,0.18); }
+    .ans-menu-tip { position: absolute; bottom: 100%; inset-inline-start: 0; margin-bottom: 8px; z-index: 10; background: var(--glass-bg); color: var(--text); border:1px solid var(--glass-border); border-radius: 12px; padding: 6px 10px; box-shadow: 0 8px 20px rgba(0,0,0,0.18); font-size: 13px; max-width: 280px; display:none; }
+    .ans-menu-tip:after { content: ''; position:absolute; inset-inline-start: 14px; top: 100%; width:0; height:0; border-left: 8px solid transparent; border-right: 8px solid transparent; border-top: 8px solid var(--glass-bg); }
+    /* MathLive field styling */
+    .mathfield { 
+      display:block; width:100%; min-height:52px; padding:10px 12px; border-radius:10px; 
+      border:1px solid #4A90E2; background: rgba(0,0,0,0.3); color: #ffffff !important; 
+      font-size: clamp(20px, 5vw, 24px);
+      /* MathLive theme variables for clear contrast */
+      --ML__background: transparent;
+      --ML__placeholder-background: rgba(255, 230, 109, 0.12);
+      --ML__selection-background: rgba(167, 139, 250, 0.28);
+      --ML__caret-color: #ffffff;
+    }
+    /* Hide MathLive built-in keyboard toggle (we use our buttons) */
+    math-field::part(virtual-keyboard-toggle) { display: none !important; }
+    /* Ensure math text color is bright */
+    .mathfield .ML__math, .mathfield .ML__content { color:#ffffff !important; }
+    .ML__keyboard { backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-radius: 12px; }
+    /* تحسين وضوح مربعات الكسر (Placeholders) في الوضع الداكن */
+    .mathfield .ML__placeholder { background: transparent !important; box-shadow: none; border-radius: 6px; }
+    .mathfield .ML__placeholder.ML__empty { 
+      background: rgba(255,230,109,0.12) !important;
+      box-shadow: inset 0 0 0 2px #FFE66D;
+      min-width: 20px; min-height: 24px;
+    }
+    .mathfield .ML__placeholder:not(.ML__empty) { background: transparent !important; box-shadow: none; }
+    /* إزالة أي خلفية افتراضية قد تظهر خلف البسط/المقام أثناء الكتابة */
+    .mathfield .ML__box,
+    .mathfield .ML__content,
+    .mathfield .ML__math,
+    .mathfield .ML__numerator,
+    .mathfield .ML__denominator,
+    .mathfield .ML__group { background-color: transparent !important; }
+    .mathfield .ML__group.ML__active,
+    .mathfield .ML__group.ML__focused,
+    .mathfield .ML__box.ML__active,
+    .mathfield .ML__box.ML__focused { background-color: transparent !important; }
+    /* إزالة أي تعبئة داخل محتوى الصندوق أثناء الكتابة */
+    .mathfield .ML__box .ML__content { background-color: transparent !important; }
+    /* تأكيد عدم ظهور خلفية لأي عنصر محدد/مركّز في الوضع الداكن */
+    .mathfield .ML__selected,
+    .mathfield .ML__focus { background-color: transparent !important; }
+    .mathfield .ML__selection { background: rgba(167, 139, 250, 0.25); }
+    .mathfield .ML__caret { border-left-color: #ffffff; }
+    /* شارات صغيرة للميتركز */
+    #streakLabel, #accLabel { padding: 4px 8px; border-radius: 999px; background: rgba(255,255,255,0.05); }
+    /* خلفية نصية شفافة لكلمات sin/cos/tan */
+    .wm { position: fixed; inset:0; z-index: -1; pointer-events:none; }
+    .wm span { position:absolute; color: var(--wm-color); font-weight:700; letter-spacing: .08em; user-select:none; filter: blur(.2px); font-size: clamp(18px, 6vw, 44px); }
+    /* كروت نتيجة مميزة في وضع التدريب */
+    .success-card { box-shadow: 0 10px 30px rgba(16,185,129,.18), inset 0 0 0 1px rgba(16,185,129,.25); }
+    .fail-card { box-shadow: 0 10px 30px rgba(239,68,68,.18), inset 0 0 0 1px rgba(239,68,68,.25); }
+    .headline { font-size: clamp(18px, 2.4vw, 22px); font-weight: 700; }
+    /* خفض التأثير في الشاشات القصيرة أو الصغيرة */
+    @media (max-width: 768px), (max-height: 820px) {
+      .blob { opacity: .12; filter: blur(80px); width: 520px; height: 520px; }
+      .b2 { bottom: -340px; right: -260px; }
+      .b3 { display:none; }
+    }
+    .scorebar { display:flex; align-items:center; gap:12px; }
+    .bar { flex:1; height: 10px; border-radius: 999px; background: rgba(255,255,255,0.12); overflow:hidden; }
+    .bar > span { display:block; height:100%; width:0%; background: var(--accent); transition: width 300ms ease; }
+    .score { min-width: 120px; }
+    @media (prefers-reduced-motion: reduce) {
+      .blob, .fade-in, .pop-in, .reaction-img, .confetti { animation: none !important; }
+      html, body { transition: none; }
+    }
+    /* تحسين الاستجابة للجوالات */
+    @media (max-width: 640px) {
+      .topbar { flex-wrap: wrap; gap:10px; }
+      .segmented { justify-content: space-between; width: 100%; }
+      #modeSeg .seg-btn { flex:1 1 auto; }
+      .row > * { flex: 1 1 100%; }
+    }
+    /* === Explicit high-contrast overrides requested === */
+    math-field {
+      color: #000000 !important;
+      background-color: #ffffff !important;
+      border: 2px solid #4A90E2 !important;
+      font-size: 1.5rem !important;
+      display: block; width: 100%;
+      --caret-color: #ff0000 !important; /* some builds use this var */
+      --ML__caret-color: #ff0000 !important; /* MathLive caret color */
+    }
+    math-field::part(content) { color: #000000 !important; }
+    math-field::part(placeholder) { color: #4A90E2 !important; opacity: 0.8; }
+    math-field:focus-within {
+      outline: 2px solid #ffaa00 !important;
+      background-color: #f0f8ff !important;
+    }
+  </style>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js" async></script>
+  <!-- MathLive for WYSIWYG math input -->
+  <link rel="stylesheet" href="https://unpkg.com/mathlive/dist/mathlive.min.css">
+  <script type="module">import 'https://unpkg.com/mathlive?module';</script>
+</head>
+<body>
+  <div class="bg"><span class="blob b1"></span><span class="blob b2"></span><span class="blob b3"></span></div>
+  <div class="wm" id="wm"></div>
+  <div class="container">
+    <div class="topbar">
+      <div class="toggle">
+        <button class="icon-btn" id="themeBtn" title="المظهر">🌙</button>
+        <button class="icon-btn" id="langBtn" title="اللغة">AR/EN</button>
+        <button class="icon-btn" id="guideBtn" title="الدليل">📘</button>
+      </div>
+      <div style="flex:1"></div>
+      <div class="segmented" id="modeSeg">
+        <button class="seg-btn active" data-mode="solve">احسب النهاية</button>
+        <button class="seg-btn" data-mode="steps">عرض الخطوات</button>
+        <button class="seg-btn" data-mode="game">وضع التدريب</button>
+      </div>
+    </div>
+    <div class="glass-card">
+      <h1 id="title">🧮 نهايات المثلثات باستخدام ماكلورين</h1>
+      <div class="muted" id="desc">ركز فقط على sin، cos، tan عندما x → 0</div>
+    </div>
+    <br />
+    <div class="glass-card">
+      <div class="row">
+        <div>
+          <label id="exprLabel">التعبير (فقط sin, cos, tan و المتغير x)</label>
+          <input id="expr" value="tan(x)/x" />
+          <div class="muted" id="examples">أمثلة: sin(x)/x ، tan(x)/x ، (1-cos(x))/x**2</div>
+          
+        </div>
+        <div id="ansBlock">
+          <label id="ansLabel">النص</label>
+          <div id="hintMini" class="muted" style="display:none; margin:6px 0 8px 0;"></div>
+          <div class="ans-menu" id="ansMenu">
+            <button id="ansMenuBtn" class="ans-menu-btn" aria-label="menu">≡</button>
+            <div id="ansMenuTip" class="ans-menu-tip"></div>
+          </div>
+          <div id="ansHelp" class="muted" style="margin:4px 0 6px 0;">يمكنك إضافة الكسور من هنا</div>
+          <math-field id="ansMath" class="mathfield" virtual-keyboard-mode="manual" smart-fence placeholder="أدخل الإجابة باللاتكس أو استخدم الأزرار"></math-field>
+          <div class="keypad" id="ansPad">
+            <button class="mini-btn" data-ins="frac" title="إدراج كسر">كسر</button>
+            <button class="mini-btn" data-ins="pow" title="إدراج أس">أس</button>
+            <button class="mini-btn" data-ins="sqrt" title="إدراج جذر">جذر √</button>
+            <button class="mini-btn" data-ins="pi" title="pi">π</button>
+            <button class="mini-btn" data-ins="sin" title="sin">sin</button>
+            <button class="mini-btn" data-ins="cos" title="cos">cos</button>
+            <button class="mini-btn" data-ins="tan" title="tan">tan</button>
+            <button class="mini-btn" data-ins="parens" title="أقواس">( )</button>
+          </div>
+        </div>
+      </div>
+      <div id="orderRow" class="control" style="display:none; margin-top:10px;">
+        <label id="orderLabel">رتبة السلسلة</label>
+        <input id="order" type="range" min="3" max="11" step="2" value="7" />
+        <span class="muted" id="orderVal">n=7</span>
+      </div>
+      <div id="gameToolbar" class="control" style="display:none; margin-top:10px; gap:8px; flex-wrap:wrap;">
+        <div class="segmented" id="diffSeg" style="flex:1 1 auto; justify-content:flex-start;">
+          <button class="seg-btn active" data-diff="easy">سهل</button>
+          <button class="seg-btn" data-diff="med">متوسط</button>
+          <button class="seg-btn" data-diff="hard">صعب</button>
+        </div>
+        <button class="btn-outline" id="newQ" style="flex:0 0 auto;">🎲 سؤال جديد</button>
+        <button class="btn-outline" id="hintBtn" style="flex:0 0 auto;">💡 تلميح</button>
+      </div>
+      <!-- مكان ثابت لوضع خانة الإجابة تحت زر التلميح في وضع التدريب -->
+      <div id="ansContainer" style="display:none; margin-top:8px;"></div>
+      <br />
+      <button id="check">تحقق</button>
+    </div>
+    <br />
+    <div id="hint" class="glass-card" style="display:none;"></div>
+    <br />
+    <div id="result" class="glass-card center"></div>
+    <br />
+    <div id="hud" class="glass-card" style="display:none;">
+      <div class="scorebar">
+        <div class="score" id="scoreLabel">النقاط: 0</div>
+        <div class="bar"><span id="progressFill"></span></div>
+        <button class="btn-outline" id="resetScore">إعادة التعيين</button>
+      </div>
+      <div class="muted" style="margin-top:8px; display:flex; gap:14px; flex-wrap:wrap;">
+        <span id="streakLabel">سلسلة صحيحة: 0🔥</span>
+        <span id="accLabel">الدقة: 0%</span>
+      </div>
+    </div>
+    <br />
+    <div id="guide" class="glass-card" style="white-space:pre-wrap"></div>
+  </div>
+
+  <!-- يفضل استخدام mp3، مع بديل wav إذا لم يتوفر -->
+  <audio id="applause" preload="auto">
+    <source src="audio/clap.mp3" type="audio/mpeg" />
+    <source src="audio/applause.wav" type="audio/wav" />
+  </audio>
+  <div class="overlay" id="overlay"></div>
+  
+
+  <script>
+    const LIGHT = { '--bg':'#f6f8ff','--text':'#0f172a','--muted':'#475569','--accent':'#5b7cff','--glass-bg':'rgba(255,255,255,0.75)','--glass-border':'rgba(15, 23, 42, 0.08)','--wm-color':'rgba(15, 23, 42, 0.05)' };
+    const DARK  = { '--bg':'#0b1220','--text':'#e5e7eb','--muted':'#94a3b8','--accent':'#a78bfa','--glass-bg':'rgba(17,24,39,0.45)','--glass-border':'rgba(148,163,184,0.4)','--wm-color':'rgba(229, 231, 235, 0.06)' };
+    let theme = 'dark';
+    let lang = 'ar';
+    let mode = 'solve';
+    let lastValue = null;
+    let reactionList = [];
+    let reactionMessages = null; // رسائل اختيارية تُحمَّل من ملف reactions/messages.json
+    let audioCtx = null, applauseBuffer = null;
+    // تعاريف مبكرة لقيم HUD لضمان توفرها قبل أي استدعاء
+    let score = 0, attempts = [], streak = 0, correct = 0, total = 0;
+    const REACTION_MSG_DEFAULT = {
+      ar: { '1': 'مستحيل حلك كذا !!', '2': '!!!', '3': 'الواضح ما براسك علم', '4': 'حاول تفكر ذا حل انسان ؟' },
+      en: { '1': 'No way that’s correct!!', '2': '!!!', '3': 'Clearly needs more study', '4': 'Think it through like a human?' }
+    };
+
+    const STR = {
+      ar: {
+        title: '🧮 نهايات المثلثات باستخدام ماكلورين',
+        desc: 'ركز فقط على sin وcos وtan عندما x → 0',
+        exprLabel: 'التعبير (فقط sin وcos وtan والمتغير x)',
+        examples: 'أمثلة: sin(x)/x ، tan(x)/x ، (1-cos(x))/x**2',
+        ansLabel: 'النص',
+        check: 'تحقق',
+        orderLabel: 'رتبة السلسلة',
+        orderVal: (n)=>`n=${n}`,
+        solve: 'احسب النهاية', steps: 'عرض الخطوات', game: 'وضع التدريب',
+        invalid: 'إدخال غير صالح. استخدم فقط sin وcos وtan والمتغير x.',
+        success: 'عمل رائع! الإجابة صحيحة', fail: 'ليست صحيحة — حاول مرة أخرى',
+        copy: '📋 نسخ',
+        points: (n)=>`النقاط: ${n}`,
+        reset: 'إعادة التعيين',
+        menuTip: 'لإضافة خصائص أكثر مثل المصفوفة وغيرها — من هنا',
+        ansHelp: 'يمكنك إضافة الكسور من هنا',
+        ansPlaceholder: 'أدخل الإجابة باللاتكس أو استخدم الأزرار',
+        diff: { easy: 'سهل', med: 'متوسط', hard: 'صعب' },
+        newQ: '🎲 سؤال جديد',
+        hintBtn: '💡 تلميح',
+        keypad: { frac: 'كسر', pow: 'أس', sqrt: 'جذر √' },
+        guide: `📘 **دليل كتابة المعادلات الرياضية في Python:**\n\n🔹 **الدوال المثلثية في الرياضيات → في Python**\n| الرياضيات | الصيغة الصحيحة في Python |\n|---------------------|-----------------------------------|\n| sin(x) → \`sin(x)\`\n| cos²(x) → \`(cos(x))**2\`\n| tan³(x) → \`(tan(x))**3\`\n| (1 - cos(2x))/x² → \`(1 - cos(2*x)) / x**2\`\n| √cos(x) → \`(cos(x))**0.5\`\n| π → \`pi\`\n\n🔹 **العمليات الأساسية**\n- الجمع: \`a + b\` (مثال: \`x + 2\`)\n- الطرح: \`a - b\` (مثال: \`x - 2\`)\n- الضرب: \`a * b\` (مثال: \`3*sin(x)\`, \`x*(x+1)\`)\n- القسمة/الكسور: \`a / b\` (مثال: \`(1 - cos(2*x)) / x**2\`)\n- الأس: \`a**n\` (مثال: \`x**3\`)\n\n🔹 **ملاحظات مهمة**\n- استخدم \`sin(x)\`, \`cos(x)\`, \`tan(x)\`.\n- استخدم \`**\` للأسس.\n- استخدم \`pi\` بدلًا من \u03c0.\n- ضع الأقواس للعمليات المركبة.`
+      },
+      en: {
+        title: '🧮 Trig Limits via Maclaurin',
+        desc: 'Focus only on sin, cos, tan as x → 0',
+        exprLabel: 'Expression (only sin, cos, tan with x)',
+        examples: 'Examples: sin(x)/x, tan(x)/x, (1-cos(x))/x**2',
+        ansLabel: 'For more features like matrices, open this menu',
+        check: 'Check',
+        orderLabel: 'Series order',
+        orderVal: (n)=>`n=${n}`,
+        solve: 'Quick Solve', steps: 'Step-by-Step', game: 'Training Mode',
+        invalid: 'Invalid input. Use only sin, cos, tan and variable x.',
+        success: 'Great job! Correct answer', fail: 'Not correct — try again',
+        copy: '📋 Copy',
+        points: (n)=>`Points: ${n}`,
+        reset: 'Reset',
+        menuTip: 'For more features like matrices, open this menu',
+        ansHelp: 'You can insert fractions here',
+        ansPlaceholder: 'Enter the answer in LaTeX or use buttons',
+        diff: { easy: 'Easy', med: 'Medium', hard: 'Hard' },
+        newQ: '🎲 New Question',
+        hintBtn: '💡 Hint',
+        keypad: { frac: 'Frac', pow: 'Pow', sqrt: '√' },
+        guide: `📘 Guide: Use sin(x), cos(x), tan(x); power with **; pi for π; add parentheses for complex operations.`
+      }
+    };
+
+    function applyTheme() {
+      const vars = theme === 'light' ? LIGHT : DARK;
+      for (const k in vars) document.documentElement.style.setProperty(k, vars[k]);
+      document.getElementById('themeBtn').textContent = theme === 'light' ? '🌙' : '☀️';
+      // تحديث تموضع/ألوان العلامة المائية عند تغيير الثيم
+      populateWatermark();
+    }
+
+    function applyLang() {
+      const s = STR[lang];
+      document.documentElement.setAttribute('lang', lang === 'ar' ? 'ar' : 'en');
+      document.documentElement.setAttribute('dir', lang === 'ar' ? 'rtl' : 'ltr');
+      document.getElementById('title').textContent = s.title;
+      document.getElementById('desc').textContent = s.desc;
+      // Use LTR isolates for Latin tokens to avoid mixing like "cosg/tang"
+      const exprLabel = (lang==='ar') ? 'التعبير (فقط <span class="latin">sin, cos, tan</span> والمتغير x)' : 'Expression (only <span class="latin">sin, cos, tan</span> with x)';
+      document.getElementById('exprLabel').innerHTML = exprLabel;
+      document.getElementById('examples').textContent = s.examples;
+      document.getElementById('ansLabel').textContent = s.ansLabel;
+      document.getElementById('check').textContent = s.check;
+      const seg = document.getElementById('modeSeg');
+      const btns = seg.querySelectorAll('.seg-btn');
+      btns[0].textContent = s.solve; btns[1].textContent = s.steps; btns[2].textContent = s.game;
+      document.getElementById('guide').textContent = s.guide;
+      document.getElementById('orderLabel').textContent = s.orderLabel;
+      document.getElementById('orderVal').textContent = s.orderVal(parseInt(document.getElementById('order').value));
+      // HUD labels
+      const rs = document.getElementById('resetScore'); if (rs) rs.textContent = s.reset;
+      const st = document.getElementById('streakLabel'); if (st) st.textContent = (lang==='ar'? `سلسلة صحيحة: ${streak}🔥` : `Streak: ${streak}🔥`);
+      const ac = document.getElementById('accLabel'); if (ac) {
+        const acc = total? Math.round((correct/total)*100) : 0;
+        ac.textContent = (lang==='ar'? `الدقة: ${acc}%` : `Accuracy: ${acc}%`);
+      }
+      const ah = document.getElementById('ansHelp'); if (ah) ah.textContent = s.ansHelp;
+      const mt = document.getElementById('ansMenuTip'); if (mt) mt.textContent = s.menuTip;
+      // Placeholder for MathLive
+      const mf = document.getElementById('ansMath'); if (mf && s.ansPlaceholder) mf.setAttribute('placeholder', s.ansPlaceholder);
+      // Difficulty / training controls
+      const dBtns = document.querySelectorAll('#diffSeg .seg-btn'); if (dBtns && dBtns.length===3 && s.diff) { dBtns[0].textContent = s.diff.easy; dBtns[1].textContent = s.diff.med; dBtns[2].textContent = s.diff.hard; }
+      const newQB = document.getElementById('newQ'); if (newQB && s.newQ) newQB.textContent = s.newQ;
+      const hintB = document.getElementById('hintBtn'); if (hintB && s.hintBtn) hintB.textContent = s.hintBtn;
+      // Keypad labels
+      if (s.keypad) {
+        const bFrac = document.querySelector('#ansPad [data-ins="frac"]'); if (bFrac) bFrac.textContent = s.keypad.frac;
+        const bPow = document.querySelector('#ansPad [data-ins="pow"]'); if (bPow) bPow.textContent = s.keypad.pow;
+        const bSqrt = document.querySelector('#ansPad [data-ins="sqrt"]'); if (bSqrt) bSqrt.textContent = s.keypad.sqrt;
+      }
+    }
+    function sanitizeExpr(expr) {
+      // Allow only digits, x, sin cos tan, operators +-*/**(), spaces
+      const ok = /^[\s0-9x+\-*/().]*$/.test(expr.replace(/sin|cos|tan/g, ''));
+      if (!ok) return null;
+      // Replace power operator if using ^ with **
+      expr = expr.replace(/\^/g, '**');
+      // Replace trig to Math.*
+      expr = expr.replace(/sin\s*\(/g, 'Math.sin(')
+                 .replace(/cos\s*\(/g, 'Math.cos(')
+                 .replace(/tan\s*\(/g, 'Math.tan(');
+      return expr;
+    }
+
+    function evalAt(expr, xval) {
+      const safe = sanitizeExpr(expr);
+      if (!safe) throw new Error('invalid');
+      // Inject variable x safely
+      const js = `const x=${xval}; return (${safe});`;
+      // eslint-disable-next-line no-new-func
+      return Function(js)();
+    }
+
+    function estimateLimit(expr) {
+      // Evaluate near 0 and average robustly
+      const xs = [1e-4, 5e-5, -5e-5, 1e-5, -1e-5];
+      const vals = [];
+      for (const xv of xs) {
+        const v = evalAt(expr, xv);
+        if (!Number.isFinite(v)) throw new Error('nonfinite');
+        vals.push(v);
+      }
+      // median for robustness
+      vals.sort((a,b)=>a-b);
+      const mid = vals[Math.floor(vals.length/2)];
+      return mid;
+    }
+
+    function sanitizeAnswer(ans) {
+      // Only numeric expression: digits + operators + () + spaces
+      const ok = /^[\s0-9+\-*/().]*$/.test(ans);
+      if (!ok) return null;
+      const js = `return (${ans});`;
+      // eslint-disable-next-line no-new-func
+      return Function(js)();
+    }
+
+    function randomReactionWithIndex() {
+      if (reactionList.length === 0) {
+        const idx = 1 + Math.floor(Math.random()*4);
+        return { src: `reactions/reaction${idx}.jpg`, idx };
+      }
+      const pick = reactionList[Math.floor(Math.random()*reactionList.length)];
+      const m = String(pick).match(/(\d+)/);
+      const idx = m ? parseInt(m[1], 10) : 1;
+      return { src: `reactions/${pick}`, idx };
+    }
+
+    function showSuccess(value) {
+      const r = document.getElementById('result');
+      const s = STR[lang];
+      r.classList.remove('fail-card'); r.classList.add('success-card');
+      r.innerHTML = `<div class='reaction pop-in'>👏😄🎉</div><p class='fade-in'>${s.success}</p><p class='muted fade-in'>${(lang==='ar'?'القيمة ~ ':'Value ~ ')} ${value.toFixed(6)}</p><br/><button id='copyBtn' class='btn-outline'>${s.copy}</button>`;
+      if (!playApplauseHQ()) smoothPlay('applause', 600);
+      lastValue = value;
+      attachCopy();
+      emojiBurst();
+    }
+
+    function showFailure(value) {
+      const r = document.getElementById('result');
+      const s = STR[lang];
+      const rr = randomReactionWithIndex();
+      const msgMap = (reactionMessages && reactionMessages[lang]) ? reactionMessages[lang] : REACTION_MSG_DEFAULT[lang];
+      const phrase = (msgMap && msgMap[String(rr.idx)]) ? msgMap[String(rr.idx)] : s.fail;
+      r.classList.remove('success-card'); r.classList.add('fail-card');
+      r.innerHTML = `<div class='reaction pop-in'>😕</div><h3 class='fade-in headline'>${phrase}</h3><p class='muted fade-in'>${(lang==='ar'?'القيمة المتوقعة ~ ':'Expected ~ ')} ${value.toFixed(6)}</p><br/><img class='reaction-img' src='${rr.src}' loading='lazy' alt='reaction' /><br/><button id='copyBtn' class='btn-outline'>${s.copy}</button>`;
+      lastValue = value;
+      attachCopy();
+    }
+
+    function sinSeriesLatex(n){
+      const terms = [];
+      // odd terms: 1,3,5,7 up to n
+      for(let k=1;k<=n;k+=2){
+        const sign = ((k-1)/2)%2===0 ? '' : '-';
+        const fact = `\\frac{x^{${k}}}{${k}!}`;
+        terms.push(`${sign}${k===1? 'x': fact}`);
+      }
+      return `\\(\\sin(x) = ${terms.join(' + ').replace(/\+ -/g,' - ')} + \\cdots\\)`;
+    }
+    function cosSeriesLatex(n){
+      const terms=[];
+      for(let j=0;j<=n;j+=2){
+        const k=j; // power
+        const sign = (k/2)%2===0 ? '' : '-';
+        const term = k===0? '1' : `\\frac{x^{${k}}}{${k}!}`;
+        terms.push(`${sign}${term}`);
+      }
+      return `\\(\\cos(x) = ${terms.join(' + ').replace(/\+ -/g,' - ')} + \\cdots\\)`;
+    }
+    function tanSeriesLatex(n){
+      // coefficients up to x^11
+      const coeff = {1:'',3:'\\frac{1}{3}',5:'\\frac{2}{15}',7:'\\frac{17}{315}',9:'\\frac{62}{2835}',11:'\\frac{1382}{155925}'};
+      const powers = [1,3,5,7,9].filter(p=>p<=n);
+      const p2 = n>=11? [...powers,11]: powers;
+      const terms = p2.map(p=>`${p===1? 'x': coeff[p]+'x^{'+p+'}'}`);
+      return `\\(\\tan(x) = ${terms.join(' + ')} + \\cdots\\)`;
+    }
+    function showSteps(expr) {
+      const s = STR[lang];
+      const r = document.getElementById('result');
+      let html = '';
+      html += `<p><strong>${(lang==='ar'?'المعادلة:':'Expression:')}</strong> ${expr}</p>`;
+      html += `<p><strong>${(lang==='ar'?'توسيعات ماكلوران:':'Maclaurin expansions:')}</strong></p>`;
+      const n = parseInt(document.getElementById('order').value);
+      const expansions = [sinSeriesLatex(n), cosSeriesLatex(n), tanSeriesLatex(n)];
+      html += `<div>${expansions.map(e=>`<div>${e}</div>`).join('')}</div>`;
+      try {
+        const L = estimateLimit(expr);
+        html += `<p><strong>${(lang==='ar'?'النهاية عند x→0:':'Limit as x→0:')}</strong> ~ ${L.toFixed(6)}</p><br/><button id='copyBtn' class='btn-outline'>${STR[lang].copy}</button>`;
+        lastValue = L; attachCopy();
+      } catch(e) {
+        html += `<p>${s.invalid}</p>`;
+      }
+      r.innerHTML = html;
+      if (window.MathJax && MathJax.typesetPromise) MathJax.typesetPromise();
+    }
+
+    document.getElementById('check').addEventListener('click', () => {
+      const expr = document.getElementById('expr').value.trim();
+      const ansLatexEl = document.getElementById('ansMath');
+      const ans = ansLatexEl ? String(ansLatexEl.getValue('latex')||'').trim() : '';
+      const res = document.getElementById('result');
+      if (mode === 'solve') {
+        // hide answer field in solve mode
+        document.getElementById('ansBlock').style.display = 'none';
+        try {
+          const L = estimateLimit(expr);
+          res.innerHTML = `<p class='fade-in'><strong>${(lang==='ar'?'النهاية عند x→0:':'Limit as x→0:')}</strong> ~ ${L.toFixed(6)}</p>`;
+        } catch(e) {
+          res.innerHTML = `<div class='reaction pop-in'>😕</div><p class='fade-in'>${STR[lang].invalid}</p>`;
+        }
+      } else if (mode === 'steps') {
+        document.getElementById('ansBlock').style.display = 'none';
+        showSteps(expr);
+      } else {
+        document.getElementById('ansBlock').style.display = '';
+        try {
+          const L = estimateLimit(expr);
+          const user = evalLatexNumeric(ans);
+          if (typeof user !== 'number' || !Number.isFinite(user)) throw new Error('bad answer');
+          const ok = Math.abs(L - user) < 1e-4;
+          total += 1; if (ok){ correct += 1; streak += 1; score += 1; attempts.push(1); } else { streak = 0; attempts.push(0); }
+          saveStats(); updateHUD();
+          if (ok) { showSuccess(L); } else { showFailure(L); }
+        } catch (e) {
+          res.innerHTML = `<div class='reaction'>😕</div><p>${STR[lang].invalid}</p>`;
+        }
+      }
+    });
+
+    document.getElementById('themeBtn').addEventListener('click', () => {
+      theme = theme === 'light' ? 'dark' : 'light';
+      const vars = theme === 'light' ? LIGHT : DARK;
+      for (const k in vars) document.documentElement.style.setProperty(k, vars[k]);
+      document.getElementById('themeBtn').textContent = theme === 'light' ? '🌙' : '☀️';
+      try { localStorage.setItem('theme', theme);} catch {}
+      populateWatermark();
+    });
+    document.getElementById('langBtn').addEventListener('click', () => {
+      lang = lang === 'ar' ? 'en' : 'ar';
+      try { localStorage.setItem('lang', lang);} catch {}
+      const cont = document.querySelector('.container'); if (cont) { cont.classList.remove('fade-in'); void cont.offsetWidth; cont.classList.add('fade-in'); }
+      applyLang();
+    });
+    document.getElementById('guideBtn').addEventListener('click', ()=>{
+      const g = document.getElementById('guide');
+      g.style.display = (g.style.display==='none')? '' : 'none';
+    });
+
+    // segmented control
+    document.getElementById('modeSeg').addEventListener('click', (e) => {
+      const btn = e.target.closest('.seg-btn');
+      if (!btn) return;
+      mode = btn.dataset.mode;
+      document.querySelectorAll('#modeSeg .seg-btn').forEach(b=>b.classList.toggle('active', b === btn));
+      // toggle order slider visibility
+      document.getElementById('orderRow').style.display = (mode==='steps')? '': 'none';
+      document.getElementById('ansBlock').style.display = (mode==='game')? '': 'none';
+      document.getElementById('gameToolbar').style.display = (mode==='game')? '' : 'none';
+      document.getElementById('hint').style.display = 'none';
+      document.getElementById('hud').style.display = (mode==='game')? '' : 'none';
+      // ضع خانة الإجابة تحت زر التلميح في وضع التدريب
+      const ansCont = document.getElementById('ansContainer');
+      if (mode==='game') {
+        updateHUD(); try { newQuestion(); } catch(_){}
+        try {
+          if (ansCont && document.getElementById('ansBlock')) {
+            ansCont.style.display = '';
+            ansCont.appendChild(document.getElementById('ansBlock'));
+          }
+        } catch{}
+        // show the tip on first entry to game mode
+        try { const seen = localStorage.getItem('menuTipSeen'); if (!seen) { showMenuTip(); setTimeout(()=>hideMenuTip(true), 4500); } } catch{}
+      } else {
+        if (ansCont) ansCont.style.display = 'none';
+      }
+    });
+
+    // init
+    (function init(){
+      // theme/lang from storage
+      try { theme = localStorage.getItem('theme') || theme; } catch {}
+      try { lang = localStorage.getItem('lang') || lang; } catch {}
+      const vars = theme==='light'? LIGHT : DARK; for (const k in vars) document.documentElement.style.setProperty(k, vars[k]);
+      document.getElementById('themeBtn').textContent = theme === 'light' ? '🌙' : '☀️';
+      document.getElementById('guide').textContent = STR[lang].guide;
+      // ensure math field is cleanly initialized
+      try { const mf = document.getElementById('ansMath'); if (mf && mf.setValue) mf.setValue('', {suppressChangeNotifications: true}); } catch {}
+      // default answer visibility
+      document.getElementById('ansBlock').style.display = 'none';
+      document.getElementById('orderRow').style.display = 'none';
+      document.getElementById('hud').style.display = 'none';
+      document.getElementById('gameToolbar').style.display = 'none';
+      document.getElementById('hint').style.display = 'none';
+      const ansCont = document.getElementById('ansContainer'); if (ansCont) ansCont.style.display = 'none';
+      // order slider change
+      document.getElementById('order').addEventListener('input', ()=>{
+        const n = parseInt(document.getElementById('order').value);
+        const s = STR[lang];
+        document.getElementById('orderVal').textContent = s.orderVal(n);
+      });
+      // apply language texts now
+      applyLang();
+      // show menu tip once near the answer menu
+      try {
+        const seen = localStorage.getItem('menuTipSeen');
+        if (!seen) { showMenuTip(); setTimeout(()=>hideMenuTip(true), 4500); }
+      } catch {}
+      // load reactions manifest + optional messages
+      loadReactionsManifest();
+      loadReactionMessages();
+      updateHUD();
+      // رسم النصوص المائية في الخلفية
+      populateWatermark();
+      window.addEventListener('resize', debounce(populateWatermark, 200));
+      // مفاتيح اختصارات: Enter للتحقق، Ctrl+N لسؤال جديد
+      window.addEventListener('keydown', (e)=>{
+        if (e.key === 'Enter') document.getElementById('check').click();
+        if ((e.ctrlKey || e.metaKey) && (e.key==='n' || e.key==='N')) { e.preventDefault(); newQuestion(); }
+      });
+    })();
+
+    // Smooth audio play (fade-in)
+    function smoothPlay(id, fadeMs=600){
+      const a = document.getElementById(id);
+      try{
+        a.pause(); a.currentTime = 0; a.volume = 0; a.play();
+        const steps = 30; const inc = 1/steps; let i=0;
+        const t = setInterval(()=>{ i++; a.volume = Math.min(1, a.volume + inc); if(i>=steps){ clearInterval(t);} }, Math.max(20, fadeMs/steps));
+      }catch(e){ a.play(); }
+    }
+    function attachCopy(){
+      const btn = document.getElementById('copyBtn');
+      if (!btn) return;
+      btn.onclick = async ()=>{
+        try {
+          await navigator.clipboard.writeText(String(lastValue));
+          btn.textContent = (lang==='ar'? '✅ تم النسخ' : '✅ Copied');
+          setTimeout(()=>{ btn.textContent = STR[lang].copy; }, 1200);
+        } catch {}
+      };
+    }
+    // Score & progress
+    score = 0; attempts = [];
+    try { score = parseInt(localStorage.getItem('score')||'0')||0; attempts = JSON.parse(localStorage.getItem('attempts')||'[]')||[]; } catch {}
+    streak = 0; correct = 0; total = 0;
+    try { streak = parseInt(localStorage.getItem('streak')||'0')||0; correct = parseInt(localStorage.getItem('correct')||'0')||0; total = parseInt(localStorage.getItem('total')||'0')||0; } catch {}
+    try { if (typeof updateHUD === 'function') updateHUD(); } catch {}
+    function saveStats(){
+      try{
+        localStorage.setItem('score', String(score));
+        localStorage.setItem('attempts', JSON.stringify(attempts.slice(-10)));
+        localStorage.setItem('streak', String(streak));
+        localStorage.setItem('correct', String(correct));
+        localStorage.setItem('total', String(total));
+      } catch{}
+    }
+    function updateHUD(){
+      const s = STR[lang];
+      const lbl = document.getElementById('scoreLabel'); if (lbl) lbl.textContent = s.points(score);
+      const recent = attempts.slice(-10); const okCount = recent.filter(x=>x===1).length; const pct = recent.length? Math.round((okCount/recent.length)*100) : 0;
+      const pf = document.getElementById('progressFill'); if (pf) pf.style.width = pct+'%';
+      const st = document.getElementById('streakLabel'); if (st) st.textContent = (lang==='ar'? `سلسلة صحيحة: ${streak}🔥` : `Streak: ${streak}🔥`);
+      const ac = document.getElementById('accLabel'); if (ac) {
+        const acc = total? Math.round((correct/total)*100) : 0;
+        ac.textContent = (lang==='ar'? `الدقة: ${acc}%` : `Accuracy: ${acc}%`);
+      }
+    }
+    document.getElementById('resetScore').addEventListener('click', ()=>{ score=0; attempts=[]; streak=0; correct=0; total=0; saveStats(); updateHUD(); });
+    function emojiBurst(){
+      const overlay = document.getElementById('overlay');
+      const emojis = ['🎉','✨','👏','🎊','🥳'];
+      for(let i=0;i<16;i++){
+        const span = document.createElement('span');
+        span.className = 'confetti';
+        span.style.left = (20 + Math.random()*80)+'%';
+        span.style.top = '8px';
+        span.textContent = emojis[Math.floor(Math.random()*emojis.length)];
+        overlay.appendChild(span);
+        setTimeout(()=>{ span.remove(); }, 1000);
+      }
+    }
+    // توليد النصوص المائية sin/cos/tan بشكل موزع
+    function populateWatermark(){
+      const cont = document.getElementById('wm'); if (!cont) return;
+      cont.innerHTML = '';
+      const words = ['sin','cos','tan'];
+      const W = window.innerWidth, H = window.innerHeight;
+      const count = Math.min(28, Math.max(10, Math.round((W*H)/45000)));
+      for(let i=0;i<count;i++){
+        const s = document.createElement('span');
+        s.textContent = words[i % words.length];
+        const left = Math.random()*90; const top = Math.random()*90;
+        const rot = (Math.random()*30 - 15).toFixed(1);
+        s.style.left = left+'%'; s.style.top = top+'%'; s.style.transform = `rotate(${rot}deg)`;
+        cont.appendChild(s);
+      }
+    }
+    function debounce(fn, ms){ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn.apply(null,a), ms); } }
+    async function loadReactionsManifest(){
+      try {
+        const res = await fetch('reactions/manifest.json', { cache: 'no-store' });
+        if (!res.ok) throw new Error('no manifest');
+        const data = await res.json();
+        if (Array.isArray(data) && data.length) reactionList = data.filter(n=>/\.jpg$/i.test(n));
+      } catch(e) {
+        // fallback is handled in randomReaction()
+      }
+    }
+    async function loadReactionMessages(){
+      try {
+        const res = await fetch('reactions/messages.json', { cache: 'no-store' });
+        if (res.ok) {
+          const data = await res.json();
+          if (data && (data.ar || data.en)) reactionMessages = data;
+        }
+      } catch(e) { /* optional file */ }
+    }
+    // بنك أسئلة التدريب
+    const BANK = {
+      easy: [
+        'sin(x)/x', 'tan(x)/x', '(1-cos(x))/x**2',
+        'sin(2*x)/(2*x)', 'tan(2*x)/(2*x)', '(1-cos(2*x))/(2*x**2)'
+      ],
+      med: [
+        '(sin(x)-x)/x**3', '(1-cos(x))/ (x**2)', 'tan(3*x)/(3*x)',
+        '(sin(3*x))/(3*x)', '(1-cos(3*x))/(x**2)'
+      ],
+      hard: [
+        '(sin(x)-x + x**3/6)/x**5', '(tan(x)-x)/x**3', '(1-cos(2*x)-2*x**2)/x**4'
+      ]
+    };
+    let difficulty = 'easy';
+    function pickRandom(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+    function newQuestion(){
+      const list = BANK[difficulty] || BANK.easy;
+      const q = pickRandom(list);
+      const exprEl = document.getElementById('expr');
+      const ansMf = document.getElementById('ansMath');
+      exprEl.value = q; if (ansMf && ansMf.setValue) ansMf.setValue('', {suppressChangeNotifications: true});
+      document.getElementById('result').innerHTML = '';
+      document.getElementById('result').classList.remove('success-card','fail-card');
+      document.getElementById('hint').style.display = 'none';
+      const hm = document.getElementById('hintMini'); if (hm) hm.style.display = 'none'; hm && (hm.innerHTML = '');
+      const ah = document.getElementById('ansHelp'); if (ah) ah.style.display='';
+      exprEl.focus();
+    }
+    // أزرار الصعوبة + سؤال جديد + تلميح
+    (function bindGameControls(){
+      var diffSeg = document.getElementById('diffSeg');
+      if (diffSeg) {
+        diffSeg.addEventListener('click', function(e){
+          const btn = e.target.closest('.seg-btn'); if (!btn) return;
+          difficulty = btn.dataset.diff;
+          document.querySelectorAll('#diffSeg .seg-btn').forEach(function(b){ b.classList.toggle('active', b===btn); });
+        });
+      }
+      var newQBtn = document.getElementById('newQ'); if (newQBtn) newQBtn.addEventListener('click', newQuestion);
+      var hintBtn = document.getElementById('hintBtn'); if (hintBtn) hintBtn.addEventListener('click', function(){
+      const hintMini = document.getElementById('hintMini');
+      const hint = document.getElementById('hint');
+      const expr = document.getElementById('expr').value.trim();
+      const need = { sin: /sin\s*\(/.test(expr), cos: /cos\s*\(/.test(expr), tan: /tan\s*\(/.test(expr) };
+      let html = '';
+      html += `<div><strong>${(lang==='ar'?'تلميحات السلسلة:':'Series hints:')}</strong></div>`;
+      const n = parseInt(document.getElementById('order').value);
+      if (need.sin) html += `<div>${sinSeriesLatex(n)}</div>`;
+      if (need.cos) html += `<div>${cosSeriesLatex(n)}</div>`;
+      if (need.tan) html += `<div>${tanSeriesLatex(n)}</div>`;
+      if (hintMini) { hintMini.innerHTML = html; hintMini.style.display = hintMini.style.display==='none'? '' : 'none'; }
+      else { hint.innerHTML = html; hint.style.display = hint.style.display==='none'? '' : 'none'; }
+      if (window.MathJax && MathJax.typesetPromise) MathJax.typesetPromise();
+      });
+    })();
+    // أزرار MathLive: إدراج قوالب مباشرة داخل الحقل WYSIWYG
+    function handleInsMath(type){
+      const mf = document.getElementById('ansMath'); if (!mf) return;
+      mf.focus();
+      if (type==='frac') {
+        // Insert fraction with placeholders and move focus to numerator
+        mf.insert('\\frac{\\placeholder{}}{\\placeholder{}}');
+        setTimeout(()=>{
+          try{
+            if (mf.executeCommand && (mf.executeCommand('nextPlaceholder') || mf.executeCommand('moveToNextPlaceholder'))) {
+              // moved
+            } else {
+              // Fallback: send keystrokes to enter first placeholder
+              mf.keystroke('Left'); mf.keystroke('Right');
+            }
+          }catch{}
+        },0);
+      }
+      else if (type==='pow') mf.insert('^{ }');
+      else if (type==='sqrt') mf.insert('\\sqrt{}');
+      else if (type==='parens') mf.insert('\\left(\\right)');
+      else if (type==='pi') mf.insert('\\pi');
+      else if (type==='sin') mf.insert('\\sin\\left(\\right)');
+      else if (type==='cos') mf.insert('\\cos\\left(\\right)');
+      else if (type==='tan') mf.insert('\\tan\\left(\\right)');
+    }
+    (function setupKeypads(){
+      const ansPad = document.getElementById('ansPad');
+      if (ansPad) ansPad.addEventListener('click', function(e){ const b = e.target.closest('.mini-btn'); if (!b) return; handleInsMath(b.dataset.ins); });
+      const ansMf = document.getElementById('ansMath');
+      if (ansMf) ansMf.addEventListener('keydown', function(e){ if ((e.ctrlKey || e.metaKey) && e.key === '/') { e.preventDefault(); handleInsMath('frac'); }});
+    })();
+
+    // أدوات مساعدة لقراءة المجموعات { ... } في LaTeX
+    function findBraceGroup(str, start){
+      let i = start;
+      while (i < str.length && str[i] !== '{') i++;
+      if (i >= str.length || str[i] !== '{') return null;
+      let depth = 0; let j = i + 1; const begin = j;
+      while (j < str.length){
+        const ch = str[j];
+        if (ch === '\\') { j += 2; continue; }
+        if (ch === '{') depth++;
+        else if (ch === '}') { if (depth === 0) return { content: str.slice(begin, j), end: j }; else depth--; }
+        j++;
+      }
+      return null;
+    }
+    function replaceAllFracLatex(s){
+      // طبع موحّد لـ \frac, \dfrac, \tfrac مع دعم تداخل الأقواس
+      s = s.replace(/\\dfrac/g, '\\frac').replace(/\\tfrac/g, '\\frac');
+      let i = 0;
+      while (true){
+        const idx = s.indexOf('\\frac', i);
+        if (idx === -1) break;
+        let k = idx + 5; // length of "\\frac"
+        const num = findBraceGroup(s, k);
+        if (!num) { i = idx + 5; continue; }
+        const den = findBraceGroup(s, num.end + 1);
+        if (!den) { i = idx + 5; continue; }
+        const numJS = `(${latexToJSExpr(num.content)})`;
+        const denJS = `(${latexToJSExpr(den.content)})`;
+        const repl = `${numJS}/${denJS}`;
+        s = s.slice(0, idx) + repl + s.slice(den.end + 1);
+        i = idx + repl.length;
+      }
+      return s;
+    }
+    // تحويل LaTeX إلى تعبير JS ثم إلى قيمة رقمية
+    function latexToJSExpr(lx){
+      if (!lx) return '';
+      let s = lx;
+      s = s.replace(/\\left|\\right/g, '');
+      // fractions (robust, يدعم التداخل و x^{2} داخل الكسر)
+      s = replaceAllFracLatex(s);
+      // sqrt
+      const sqrt = /\\sqrt\{([^{}]+)\}/g;
+      while (sqrt.test(s)) s = s.replace(sqrt, (m,a)=>`(${latexToJSExpr(a)})**0.5`);
+      // trig
+      s = s.replace(/\\sin\s*\(([^)]+)\)/g, (m,a)=>`Math.sin(${latexToJSExpr(a)})`);
+      s = s.replace(/\\cos\s*\(([^)]+)\)/g, (m,a)=>`Math.cos(${latexToJSExpr(a)})`);
+      s = s.replace(/\\tan\s*\(([^)]+)\)/g, (m,a)=>`Math.tan(${latexToJSExpr(a)})`);
+      // pi
+      s = s.replace(/\\pi/g, 'Math.PI');
+      // powers like x^{2}
+      s = s.replace(/([0-9A-Za-z_\)]+)\^\{([^}]+)\}/g, (m,base,exp)=>`${base}**(${latexToJSExpr(exp)})`);
+      // cleanup braces to parentheses
+      s = s.replace(/\{([^{}]+)\}/g, (m,a)=>`(${a})`);
+      s = s.replace(/\\cdot/g, '*');
+      return s;
+    }
+    function evalLatexNumeric(lx){
+      try{
+        const expr = latexToJSExpr(lx).trim();
+        if (!expr) return NaN;
+        const ok = /^[0-9\s+\-*/().A-Za-z_]*$/.test(expr);
+        if (!ok) return NaN;
+        // eslint-disable-next-line no-new-func
+        return Function(`return (${expr});`)();
+      }catch{ return NaN; }
+    }
+    async function initAudioHQ(){
+      try {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const resp = await fetch('audio/clap.mp3', { cache: 'no-store' });
+        const buf = await resp.arrayBuffer();
+        applauseBuffer = await audioCtx.decodeAudioData(buf);
+        return true;
+      } catch(e) { return false; }
+    }
+    // Menu tip controls (anchored to answer menu)
+    function showMenuTip(){ const el = document.getElementById('ansMenuTip'); if (!el) return; el.style.display='block'; }
+    function hideMenuTip(mark){ const el = document.getElementById('ansMenuTip'); if (!el) return; el.style.display='none'; if (mark) { try { localStorage.setItem('menuTipSeen','1'); } catch {} } }
+    (function bindMenu(){ const b = document.getElementById('ansMenuBtn'); const tip = document.getElementById('ansMenuTip'); if (!b || !tip) return; b.addEventListener('mouseenter', showMenuTip); b.addEventListener('mouseleave', hideMenuTip); b.addEventListener('click', ()=>{ if (tip.style.display==='none' || tip.style.display==='') showMenuTip(); else hideMenuTip(true); }); })();
+    function playApplauseHQ(){
+      // returns true if played via WebAudio
+      if (!audioCtx || !applauseBuffer) return false;
+      try {
+        const src = audioCtx.createBufferSource(); src.buffer = applauseBuffer;
+        const gain = audioCtx.createGain(); gain.gain.value = 0.0;
+        const comp = audioCtx.createDynamicsCompressor();
+        comp.threshold.value = -24; comp.knee.value = 30; comp.ratio.value = 6; comp.attack.value = 0.003; comp.release.value = 0.25;
+        const lp = audioCtx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 8000; lp.Q.value = 0.7;
+        src.connect(comp); comp.connect(lp); lp.connect(gain); gain.connect(audioCtx.destination);
+        const now = audioCtx.currentTime; gain.gain.cancelScheduledValues(now); gain.gain.setValueAtTime(0.0, now);
+        gain.gain.linearRampToValueAtTime(1.0, now + 0.6);
+        src.start();
+        return true;
+      } catch(e) { return false; }
+    }
+    window.addEventListener('click', async ()=>{ try{ if(!audioCtx || !applauseBuffer) await initAudioHQ(); }catch{} }, { once: true });
+  </script>
+</body>
+</html>

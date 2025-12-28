@@ -1,0 +1,6 @@
+streamlit>=1.31.0
+sympy>=1.12
+# Optional: if you later add lottie animations
+st-math-input
+streamlit-lottie>=0.0.3
+Pillow>=10.0.0
