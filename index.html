@@ -72,6 +72,7 @@
       --ML__selection-background: rgba(167, 139, 250, 0.28);
       --ML__caret-color: #ffffff;
     }
+    .textfield { display:block; width:100%; min-height:52px; padding:10px 12px; border-radius:10px; border:2px solid #4A90E2; background:#ffffff; color:#000000; font-size: clamp(20px, 5vw, 24px); }
     /* Hide MathLive built-in keyboard toggle (we use our buttons) */
     math-field::part(virtual-keyboard-toggle) { display: none !important; }
     /* Ensure math text color is bright */
@@ -203,7 +204,8 @@
             <div id="ansMenuTip" class="ans-menu-tip"></div>
           </div>
           <div id="ansHelp" class="muted" style="margin:4px 0 6px 0;">يمكنك إضافة الكسور من هنا</div>
-          <math-field id="ansMath" class="mathfield" virtual-keyboard-mode="manual" smart-fence placeholder="أدخل الإجابة باللاتكس أو استخدم الأزرار"></math-field>
+          <input id="ansText" class="textfield" placeholder="أدخل الإجابة كنص (يدعم لاتكس)" />
+          <math-field id="ansMath" class="mathfield" virtual-keyboard-mode="manual" smart-fence style="display:none" placeholder="أدخل الإجابة باللاتكس أو استخدم الأزرار"></math-field>
           <div class="keypad" id="ansPad">
             <button class="mini-btn" data-ins="frac" title="إدراج كسر">كسر</button>
             <button class="mini-btn" data-ins="pow" title="إدراج أس">أس</button>
@@ -371,6 +373,7 @@
       const kb = document.getElementById('kbDismiss'); if (kb) kb.textContent = (lang==='ar'? 'تم' : 'Done');
       // Placeholder for MathLive
       const mf = document.getElementById('ansMath'); if (mf && s.ansPlaceholder) mf.setAttribute('placeholder', s.ansPlaceholder);
+      const tx = document.getElementById('ansText'); if (tx) tx.setAttribute('placeholder', (lang==='ar'? 'أدخل الإجابة كنص (يدعم لاتكس)' : 'Enter answer as text (LaTeX supported)'));
       // Difficulty / training controls
       const dBtns = document.querySelectorAll('#diffSeg .seg-btn'); if (dBtns && dBtns.length===3 && s.diff) { dBtns[0].textContent = s.diff.easy; dBtns[1].textContent = s.diff.med; dBtns[2].textContent = s.diff.hard; }
       const newQB = document.getElementById('newQ'); if (newQB && s.newQ) newQB.textContent = s.newQ;
@@ -512,8 +515,13 @@
 
     document.getElementById('check').addEventListener('click', () => {
       const expr = document.getElementById('expr').value.trim();
-      const ansLatexEl = document.getElementById('ansMath');
-      const ans = ansLatexEl ? String(ansLatexEl.getValue('latex')||'').trim() : '';
+      const ansMf = document.getElementById('ansMath'); const ansTx = document.getElementById('ansText');
+      let ans = '';
+      try {
+        const mfVisible = ansMf && ansMf.style.display !== 'none';
+        if (mfVisible && ansMf.getValue) ans = String(ansMf.getValue('latex')||'').trim();
+        else ans = String(ansTx ? ansTx.value||'' : '').trim();
+      } catch { ans = String(ansTx ? ansTx.value||'' : '').trim(); }
       const res = document.getElementById('result');
       if (mode === 'solve') {
         // hide answer field in solve mode
@@ -639,7 +647,7 @@
     // --- Mobile keyboard UX: dismiss button, padding, outside click ---
     function setupKeyboardUX(){
       const cont = document.querySelector('.container');
-      const mf = document.getElementById('ansMath'); const dismiss = document.getElementById('kbDismiss');
+      const mf = document.getElementById('ansMath'); const dismiss = document.getElementById('kbDismiss'); const tx = document.getElementById('ansText');
       if (!cont || !mf || !dismiss) return;
       let kbOpen = false;
       let kbEl = null;
@@ -672,20 +680,35 @@
       const menuBtn = document.getElementById('ansMenuBtn');
       if (menuBtn) {
         menuBtn.addEventListener('click', function(){
+          try {
+            if (tx) tx.style.display = 'none';
+            mf.style.display = '';
+            const v = tx ? String(tx.value||'') : '';
+            if (mf.setValue) mf.setValue(v, {suppressChangeNotifications:true});
+          } catch{}
           try { mf.focus(); } catch{}
           openKB();
           try {
             if (mf.showVirtualKeyboard) mf.showVirtualKeyboard();
             else if (mf.executeCommand) mf.executeCommand('showVirtualKeyboard');
           } catch{}
-          // بعد إظهار الكيبورد، قِس ارتفاع العنصر الفعلي وطبّق الحاشية
           setTimeout(function(){ if (kbOpen) measureAndApplyKBLayout(); }, 60);
         });
       }
       // Dismiss button
-      dismiss.addEventListener('click', function(){ try{ mf.blur(); }catch{} closeKB(); });
+      dismiss.addEventListener('click', function(){
+        try { const v = mf && mf.getValue ? String(mf.getValue('latex')||'') : ''; if (tx) tx.value = v; } catch{}
+        mf.style.display = 'none'; if (tx) tx.style.display='';
+        try{ mf.blur(); }catch{}
+        closeKB();
+        try { if (tx) tx.focus(); } catch{}
+      });
       // Outside click to blur
-      document.addEventListener('pointerdown', function(e){ if (!kbOpen) return; const kbd = document.querySelector('.ML__keyboard'); const withinField = mf.contains(e.target); const withinKB = kbd && kbd.contains(e.target); if (!withinField && !withinKB) { try{ mf.blur(); }catch{} closeKB(); } }, true);
+      document.addEventListener('pointerdown', function(e){ if (!kbOpen) return; const kbd = document.querySelector('.ML__keyboard'); const withinField = mf.contains(e.target); const withinKB = kbd && kbd.contains(e.target); if (!withinField && !withinKB) {
+        try { const v = mf && mf.getValue ? String(mf.getValue('latex')||'') : ''; if (tx) tx.value = v; } catch{}
+        mf.style.display = 'none'; if (tx) tx.style.display='';
+        try{ mf.blur(); }catch{} closeKB(); try { if (tx) tx.focus(); } catch{}
+      } }, true);
       // Recompute on viewport changes
       if (window.visualViewport) window.visualViewport.addEventListener('resize', function(){ if (kbOpen) measureAndApplyKBLayout(); });
       window.addEventListener('orientationchange', function(){ if (kbOpen) setTimeout(measureAndApplyKBLayout, 120); });
@@ -876,7 +899,10 @@
     }
     (function setupKeypads(){
       const ansPad = document.getElementById('ansPad');
-      if (ansPad) ansPad.addEventListener('click', function(e){ const b = e.target.closest('.mini-btn'); if (!b) return; handleInsMath(b.dataset.ins); });
+      if (ansPad) ansPad.addEventListener('click', function(e){ const b = e.target.closest('.mini-btn'); if (!b) return; 
+        try { const tx = document.getElementById('ansText'); const mf = document.getElementById('ansMath'); if (tx) tx.style.display='none'; mf.style.display=''; mf.focus(); } catch{}
+        handleInsMath(b.dataset.ins);
+      });
       const ansMf = document.getElementById('ansMath');
       if (ansMf) ansMf.addEventListener('keydown', function(e){ if ((e.ctrlKey || e.metaKey) && e.key === '/') { e.preventDefault(); handleInsMath('frac'); }});
     })();
