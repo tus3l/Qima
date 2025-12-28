@@ -73,7 +73,14 @@
       --ML__caret-color: #ffffff;
     }
     .mathfield-container { position: relative; }
-    .kb-close-btn { position: absolute; inset-inline-end: 8px; top: 8px; z-index: 860; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--glass-border); background: rgba(255,255,255,0.12); color: var(--text); box-shadow: 0 6px 18px rgba(0,0,0,0.18); display:none; }
+    .kb-close-btn {
+      position: fixed; right: 12px; bottom: 56px; z-index: 10000;
+      padding: 6px 10px; border-radius: 12px;
+      border: 1px solid var(--glass-border);
+      background: var(--accent); color: #fff;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.18);
+      display:none;
+    }
     .kb-close-btn:hover { background: var(--accent); color: #fff; }
     .textfield { display:block; width:100%; min-height:52px; padding:10px 12px; border-radius:10px; border:2px solid #4A90E2; background:#ffffff; color:#000000; font-size: clamp(20px, 5vw, 24px); }
     /* أظهر تبديل الكيبورد الافتراضي لمزايا كاملة */
@@ -637,6 +644,18 @@
         window.mathVirtualKeyboard.container = document.getElementById('math-field-container');
         // تفعيل تخطيط كامل بالمعاملات
         window.mathVirtualKeyboard.layouts = 'full';
+        // حرّك زر ✕ ليكون فوق الكيبورد ويتابع ارتفاعه
+        try {
+          window.mathVirtualKeyboard.addEventListener('geometrychange', function(){
+            const btn = document.getElementById('kbClose');
+            const rect = window.mathVirtualKeyboard.boundingRect || {};
+            if (btn) {
+              const open = rect && rect.height > 0;
+              btn.style.display = open ? 'block' : 'none';
+              if (open) btn.style.bottom = `calc(${Math.max(0, rect.height)}px + env(safe-area-inset-bottom) + 10px)`;
+            }
+          });
+        } catch{}
       } } catch {}
       // show menu tip once near the answer menu
       try {
@@ -1069,3 +1088,4 @@
   </script>
 </body>
 </html>
+
