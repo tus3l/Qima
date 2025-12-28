@@ -704,11 +704,21 @@
         try { if (tx) tx.focus(); } catch{}
       });
       // Outside click to blur
-      document.addEventListener('pointerdown', function(e){ if (!kbOpen) return; const kbd = document.querySelector('.ML__keyboard'); const withinField = mf.contains(e.target); const withinKB = kbd && kbd.contains(e.target); if (!withinField && !withinKB) {
-        try { const v = mf && mf.getValue ? String(mf.getValue('latex')||'') : ''; if (tx) tx.value = v; } catch{}
-        mf.style.display = 'none'; if (tx) tx.style.display='';
-        try{ mf.blur(); }catch{} closeKB(); try { if (tx) tx.focus(); } catch{}
-      } }, true);
+      document.addEventListener('pointerdown', function(e){
+        if (!kbOpen) return;
+        const kbd = document.querySelector('.ML__keyboard');
+        const withinField = mf.contains(e.target);
+        const withinKB = kbd && kbd.contains(e.target);
+        const pad = document.getElementById('ansPad');
+        const menu = document.getElementById('ansMenu');
+        const withinPad = pad && pad.contains(e.target);
+        const withinMenu = menu && menu.contains(e.target);
+        if (!withinField && !withinKB && !withinPad && !withinMenu) {
+          try { const v = mf && mf.getValue ? String(mf.getValue('latex')||'') : ''; if (tx) tx.value = v; } catch{}
+          mf.style.display = 'none'; if (tx) tx.style.display='';
+          try{ mf.blur(); }catch{} closeKB(); try { if (tx) tx.focus(); } catch{}
+        }
+      }, true);
       // Recompute on viewport changes
       if (window.visualViewport) window.visualViewport.addEventListener('resize', function(){ if (kbOpen) measureAndApplyKBLayout(); });
       window.addEventListener('orientationchange', function(){ if (kbOpen) setTimeout(measureAndApplyKBLayout, 120); });
@@ -899,8 +909,17 @@
     }
     (function setupKeypads(){
       const ansPad = document.getElementById('ansPad');
-      if (ansPad) ansPad.addEventListener('click', function(e){ const b = e.target.closest('.mini-btn'); if (!b) return; 
-        try { const tx = document.getElementById('ansText'); const mf = document.getElementById('ansMath'); if (tx) tx.style.display='none'; mf.style.display=''; mf.focus(); } catch{}
+      if (ansPad) ansPad.addEventListener('click', function(e){
+        const b = e.target.closest('.mini-btn'); if (!b) return;
+        try {
+          const tx = document.getElementById('ansText'); const mf = document.getElementById('ansMath');
+          if (tx) tx.style.display='none'; mf.style.display='';
+          if (mf && mf.focus) mf.focus();
+          // افتح الكيبورد الرياضي وطبّق الحاشية بعد الإظهار
+          if (typeof openKB === 'function') openKB();
+          try { if (mf.showVirtualKeyboard) mf.showVirtualKeyboard(); else if (mf.executeCommand) mf.executeCommand('showVirtualKeyboard'); } catch{}
+          setTimeout(function(){ try { const vv = window.visualViewport; const kbd = document.querySelector('.ML__keyboard'); if (kbd && kbd.offsetHeight) { const dismiss = document.getElementById('kbDismiss'); const cont = document.querySelector('.container'); const h = Math.max(220, kbd.offsetHeight); cont.style.paddingBottom = (h+16)+'px'; dismiss.style.display='block'; dismiss.style.bottom = `calc(${h}px + env(safe-area-inset-bottom) + 12px)`; } } catch{} }, 60);
+        } catch{}
         handleInsMath(b.dataset.ins);
       });
       const ansMf = document.getElementById('ansMath');
