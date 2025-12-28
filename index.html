@@ -638,6 +638,14 @@
         window.mathVirtualKeyboard.container = document.getElementById('math-field-container');
         // تفعيل تخطيط كامل بالمعاملات
         window.mathVirtualKeyboard.layouts = 'full';
+        // إظهار/إخفاء زر "تم" وفق ظهور الكيبورد فعليًا
+        try {
+          window.mathVirtualKeyboard.addEventListener('geometrychange', function(){
+            const dismissBtn = document.getElementById('kbDismiss');
+            const rect = window.mathVirtualKeyboard.boundingRect || {};
+            if (dismissBtn) dismissBtn.style.display = rect.height > 0 ? 'block' : 'none';
+          });
+        } catch {}
       } } catch {}
       // show menu tip once near the answer menu
       try {
