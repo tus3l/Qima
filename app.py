@@ -126,7 +126,7 @@ class Translator:
 STRINGS: Dict[str, Dict[str, str]] = {
     'EN': {
         'title': 'Trigonometric Limits via Maclaurin',
-        'desc': 'Explore limits as x → 0 for sin, cos, tan using series.',
+        'desc': 'Explore limits as x → a for sin, cos, tan using series.',
         'mode': 'Mode',
         'quick': 'Quick Solve',
         'steps': 'Step-by-Step',
@@ -137,7 +137,8 @@ STRINGS: Dict[str, Dict[str, str]] = {
         'limit_result': 'Limit Result',
         'series_expansions': 'Maclaurin Expansions',
         'simplified_series': 'Simplified Series (after substitution)',
-        'final_limit': 'Final Limit as x → 0',
+        'final_limit': 'Final Limit as x → a',
+        'approach_point': 'Approach point',
         'invalid': 'Invalid input. Use only sin, cos, tan and variable x.',
         'theme': 'Theme',
         'theme_light': 'Light',
@@ -151,7 +152,7 @@ STRINGS: Dict[str, Dict[str, str]] = {
     },
     'AR': {
         'title': 'نهايات المثلثات بسلسلة ماكلوران',
-        'desc': 'اكتشف النهايات عندما x → 0 للدوال sin وcos وtan باستخدام السلاسل.',
+        'desc': 'اكتشف النهايات عندما x → a للدوال sin وcos وtan باستخدام السلاسل.',
         'mode': 'الوضع',
         'quick': 'حل سريع',
         'steps': 'خطوة بخطوة',
@@ -162,7 +163,8 @@ STRINGS: Dict[str, Dict[str, str]] = {
         'limit_result': 'نتيجة النهاية',
         'series_expansions': 'توسيعات ماكلوران',
         'simplified_series': 'سلسلة مبسطة (بعد الاستبدال)',
-        'final_limit': 'النهاية عندما x → 0',
+        'final_limit': 'النهاية عندما x → a',
+        'approach_point': 'نقطة الاقتراب',
         'invalid': 'إدخال غير صالح. استخدم فقط sin وcos وtan والمتغير x.',
         'theme': 'المظهر',
         'theme_light': 'فاتح',
@@ -201,17 +203,17 @@ class MaclaurinEngine:
                 return None
         return expr
 
-    def quick_limit(self, expr_str: str) -> Tuple[bool, Optional[sp.Expr]]:
+    def quick_limit(self, expr_str: str, a: sp.Expr = sp.Integer(0)) -> Tuple[bool, Optional[sp.Expr]]:
         expr = self.parse(expr_str)
         if expr is None:
             return False, None
         try:
-            L = sp.limit(expr, self.x, 0)
+            L = sp.limit(expr, self.x, a)
             return True, sp.simplify(L)
         except Exception:
             return False, None
 
-    def series_steps(self, expr_str: str, order: int = 7) -> Tuple[bool, Dict[str, List[str]]]:
+    def series_steps(self, expr_str: str, order: int = 7, a: sp.Expr = sp.Integer(0)) -> Tuple[bool, Dict[str, List[str]]]:
         expr = self.parse(expr_str)
         if expr is None:
             return False, {}
@@ -229,19 +231,19 @@ class MaclaurinEngine:
         }
         try:
             if present['sin']:
-                s = sp.series(sp.sin(x), x, 0, order).removeO()
+                s = sp.series(sp.sin(x), x, a, order).removeO()
                 steps['expansions'].append(sp.latex(sp.Eq(sp.sin(x), s)))
             if present['cos']:
-                c = sp.series(sp.cos(x), x, 0, order).removeO()
+                c = sp.series(sp.cos(x), x, a, order).removeO()
                 steps['expansions'].append(sp.latex(sp.Eq(sp.cos(x), c)))
             if present['tan']:
-                t = sp.series(sp.tan(x), x, 0, order).removeO()
+                t = sp.series(sp.tan(x), x, a, order).removeO()
                 steps['expansions'].append(sp.latex(sp.Eq(sp.tan(x), t)))
 
-            series_expr = sp.series(expr, x, 0, order).removeO()
+            series_expr = sp.series(expr, x, a, order).removeO()
             steps['simplified'].append(sp.latex(sp.Eq(sp.Symbol('S(x)'), sp.simplify(series_expr))))
-            L = sp.limit(series_expr, x, 0)
-            steps['final'].append(sp.latex(sp.Eq(sp.Symbol('\\lim_{x\\to 0}'), L)))
+            L = sp.limit(series_expr, x, a)
+            steps['final'].append(sp.latex(sp.Eq(sp.Symbol('\\lim_{x\\to a}'), L)))
             return True, steps
         except Exception:
             return False, {}
@@ -291,19 +293,26 @@ class App:
         x = self.engine.x
         expr_label = self.tr.t('expr')
         expr_str = st.text_input(expr_label, value="sin(x)/x", key='expr_q')
+        # Approach point selector
+        a_label = self.tr.t('approach_point')
+        a_str = st.text_input(a_label, value="0", key='a_q')
+        try:
+            a_val = sp.sympify(a_str, locals={'pi': sp.pi}) if a_str.strip() else sp.Integer(0)
+        except Exception:
+            a_val = sp.Integer(0)
         order = st.slider(self.tr.t('order'), min_value=3, max_value=15, value=7, step=2, key='order_q')
         solve = st.button(self.tr.t('solve'), type='primary', key='solve_q')
         if solve:
-            ok, result = self.engine.quick_limit(expr_str)
+            ok, result = self.engine.quick_limit(expr_str, a=a_val)
             card_open = "<div class='glass-card'>"
             if not ok:
                 st.markdown(card_open + f"<div class='reaction'>😕</div><p>{self.tr.t('invalid')}</p></div>", unsafe_allow_html=True)
                 return
             st.markdown(card_open + f"<h4>{self.tr.t('limit_result')}</h4>", unsafe_allow_html=True)
-            st.latex(sp.latex(sp.limit(self.engine.parse(expr_str), x, 0)) + f"= {sp.latex(result)}")
+            st.latex(sp.latex(sp.limit(self.engine.parse(expr_str), x, a_val)) + f"= {sp.latex(result)}")
             st.markdown("</div>", unsafe_allow_html=True)
             # Show series as a bonus detail
-            ok2, steps = self.engine.series_steps(expr_str, order)
+            ok2, steps = self.engine.series_steps(expr_str, order, a=a_val)
             if ok2:
                 st.markdown("<div class='glass-card'>" + f"<h4>{self.tr.t('series_expansions')}</h4>", unsafe_allow_html=True)
                 for s in steps['expansions']:
@@ -312,9 +321,15 @@ class App:
 
     def step_by_step(self):
         expr_str = st.text_input(self.tr.t('expr'), value="(1-cos(x))/x**2", key='expr_s')
+        a_label = self.tr.t('approach_point')
+        a_str = st.text_input(a_label, value="0", key='a_s')
+        try:
+            a_val = sp.sympify(a_str, locals={'pi': sp.pi}) if a_str.strip() else sp.Integer(0)
+        except Exception:
+            a_val = sp.Integer(0)
         order = st.slider(self.tr.t('order'), min_value=3, max_value=15, value=7, step=2, key='order_s')
         if st.button(self.tr.t('solve'), key='solve_s'):
-            ok, steps = self.engine.series_steps(expr_str, order)
+            ok, steps = self.engine.series_steps(expr_str, order, a=a_val)
             if not ok:
                 st.markdown("<div class='glass-card'><div class='reaction'>😕</div><p>" + self.tr.t('invalid') + "</p></div>", unsafe_allow_html=True)
                 return
@@ -335,6 +350,16 @@ class App:
         x = self.engine.x
         st.markdown("<div class='glass-card'>", unsafe_allow_html=True)
         st.markdown(f"<div class='muted'>{self.tr.t('examples')}</div>", unsafe_allow_html=True)
+
+        # Approach point selector for training mode
+        a_label = self.tr.t('approach_point')
+        col_ap, _ = st.columns([1,3])
+        with col_ap:
+            a_str = st.text_input(a_label, value="0", key='a_t')
+        try:
+            a_val = sp.sympify(a_str, locals={'pi': sp.pi}) if a_str.strip() else sp.Integer(0)
+        except Exception:
+            a_val = sp.Integer(0)
 
         # Visual math inputs (LaTeX) with quick buttons
         colA, colB = st.columns(2)
@@ -393,7 +418,7 @@ class App:
                 return
 
             try:
-                L = sp.limit(expr_sym, x, 0)
+                L = sp.limit(expr_sym, x, a_val)
             except Exception:
                 st.markdown("<div class='glass-card'><div class='reaction'>😕</div><p>" + self.tr.t('invalid') + "</p></div>", unsafe_allow_html=True)
                 return
