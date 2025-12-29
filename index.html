@@ -250,13 +250,12 @@
           </div>
         </div>
       </div>
-      <!-- اختيار نقطة الاقتراب -->
+      <!-- نقطة الاقتراب: إدخال رياضي/نصي -->
       <div class="control" style="margin-top:10px; gap:10px; align-items:center; flex-wrap:wrap;">
         <label id="pointLabel">نقطة الاقتراب</label>
-        <div class="segmented" id="pointSeg" style="flex:1 1 100%;">
-          <button class="seg-btn active" data-point="0">0</button>
-          <button class="seg-btn" data-point="pi/4">π/4</button>
-          <button class="seg-btn" data-point="pi">π</button>
+        <div id="point-field-container" class="mathfield-container" style="flex:1 1 100%;">
+          <input id="pointText" class="textfield" placeholder="أدخل قيمة a (مثل π/4 أو 0)" style="display:none" />
+          <math-field id="pointMath" class="mathfield" virtual-keyboard-mode="manual" smart-fence placeholder="اكتب قيمة a مثل \pi/4 أو 0"></math-field>
         </div>
       </div>
       <div id="orderRow" class="control" style="display:none; margin-top:10px;">
@@ -425,8 +424,7 @@
       document.documentElement.setAttribute('lang', lang === 'ar' ? 'ar' : 'en');
       document.documentElement.setAttribute('dir', lang === 'ar' ? 'rtl' : 'ltr');
       document.getElementById('title').textContent = s.title;
-      const aTextForDesc = (typeof getPointLabel === 'function') ? getPointLabel() : 'a';
-      document.getElementById('desc').textContent = String(s.desc).replace('{a}', aTextForDesc);
+      document.getElementById('desc').textContent = s.desc;
       // Use LTR isolates for Latin tokens to avoid mixing like "cosg/tang"
       const exprLabel = (lang==='ar') ? 'التعبير (فقط <span class="latin">sin, cos, tan</span> والمتغير x)' : 'Expression (only <span class="latin">sin, cos, tan</span> with x)';
       document.getElementById('exprLabel').innerHTML = exprLabel;
@@ -457,6 +455,9 @@
       // Expression field placeholders
       const em = document.getElementById('exprMath'); if (em && s.exprPlaceholderMath) em.setAttribute('placeholder', s.exprPlaceholderMath);
       const et = document.getElementById('exprText'); if (et && s.exprPlaceholderText) et.setAttribute('placeholder', s.exprPlaceholderText);
+      // Approach point placeholders
+      const pm = document.getElementById('pointMath'); if (pm) pm.setAttribute('placeholder', (lang==='ar'? 'اكتب قيمة a مثل \\pi/4 أو 0' : 'Enter a like \\pi/4 or 0'));
+      const pt = document.getElementById('pointText'); if (pt) pt.setAttribute('placeholder', (lang==='ar'? 'أدخل قيمة a (مثل π/4 أو 0)' : 'Enter value a (like pi/4 or 0)'));
       // Difficulty / training controls
       const dBtns = document.querySelectorAll('#diffSeg .seg-btn'); if (dBtns && dBtns.length===3 && s.diff) { dBtns[0].textContent = s.diff.easy; dBtns[1].textContent = s.diff.med; dBtns[2].textContent = s.diff.hard; }
       const newQB = document.getElementById('newQ'); if (newQB && s.newQ) newQB.textContent = s.newQ;
@@ -653,8 +654,8 @@
       const expansions = [sinSeriesLatex(n), cosSeriesLatex(n), tanSeriesLatex(n)];
       html += `<div>${expansions.map(e=>`<div>${e}</div>`).join('')}</div>`;
       try {
-        const a = getPointValue();
-        const aText = getPointLabel();
+        const a = getApproachValue();
+        const aText = getApproachLabel();
         const L = estimateLimit(expr, a);
         html += `<p><strong>${STR[lang].limitAs} ${aText}:</strong> ~ ${L.toFixed(6)}</p><br/><button id='copyBtn' class='btn-outline'>${STR[lang].copy}</button>`;
         lastValue = L; attachCopy();
@@ -679,8 +680,8 @@
         // hide answer field in solve mode
         document.getElementById('ansBlock').style.display = 'none';
         try {
-          const a = getPointValue();
-          const aText = getPointLabel();
+          const a = getApproachValue();
+          const aText = getApproachLabel();
           const L = estimateLimit(expr, a);
           res.innerHTML = `<p class='fade-in'><strong>${STR[lang].limitAs} ${aText}:</strong> ~ ${L.toFixed(6)}</p>`;
         } catch(e) {
@@ -692,7 +693,7 @@
       } else {
         document.getElementById('ansBlock').style.display = '';
         try {
-          const a = getPointValue();
+          const a = getApproachValue();
           const L = estimateLimit(expr, a);
           const user = evalLatexNumeric(ans);
           if (typeof user !== 'number' || !Number.isFinite(user)) throw new Error('bad answer');
@@ -779,9 +780,6 @@
       });
       // apply language texts now
       applyLang();
-      // bind approach point selector and sync description
-      bindPointSeg();
-      updateDescWithPoint();
       // mobile keyboard UX hooks
       setupKeyboardUX();
       setupExprUX();
@@ -1132,7 +1130,7 @@
       // Build question according to current approach point
       let evalQ = q;
       try {
-        const a = (typeof getPointValue==='function') ? getPointValue() : 0;
+        const a = (typeof getApproachValue==='function') ? getApproachValue() : 0;
         if (a !== 0) {
           const aNum = Number(a);
           const aStr = '(' + (Number.isFinite(aNum) ? aNum.toPrecision(12) : String(a)) + ')';
@@ -1154,7 +1152,7 @@
           card.style.display = '';
           let latex;
           try {
-            const aText = (typeof getPointLabel==='function') ? getPointLabel() : '0';
+            const aText = (typeof getApproachLabel==='function') ? getApproachLabel() : '0';
             if (aText && aText !== '0') {
               // create a symbolic display using x - (π/4) or x - π
               const aLatex = (aText === 'π/4') ? '\\frac{\\pi}{4}' : (aText === 'π' ? '\\pi' : aText);
@@ -1318,34 +1316,41 @@
         return Function(`return (${expr});`)();
       }catch{ return NaN; }
     }
-    // تحديد نقطة الاقتراب: 0 أو π/4 أو π
-    function getPointLabel(){
-      if (pointSel === 'pi/4') return 'π/4';
-      if (pointSel === 'pi') return 'π';
-      return '0';
+    // قراءة قيمة نقطة الاقتراب من الحقل الرياضي/النصي
+    function getApproachInput(){
+      const pm = document.getElementById('pointMath'); const pt = document.getElementById('pointText');
+      let v = '';
+      try {
+        const mfVisible = pm && pm.style.display !== 'none';
+        if (mfVisible && pm.getValue) v = String(pm.getValue('latex')||'');
+        else v = String(pt ? pt.value||'' : '');
+      } catch { v = String(pt ? pt.value||'' : ''); }
+      return String(v||'').trim();
     }
-    function getPointValue(){
-      if (pointSel === 'pi/4') return Math.PI/4;
-      if (pointSel === 'pi') return Math.PI;
-      return 0;
+    function getApproachValue(){
+      const s = getApproachInput();
+      if (!s) return 0;
+      const val = evalLatexNumeric(s);
+      return (typeof val==='number' && Number.isFinite(val)) ? val : 0;
     }
-    function bindPointSeg(){
-      const seg = document.getElementById('pointSeg'); if (!seg) return;
-      seg.addEventListener('click', (e)=>{
-        const btn = e.target.closest('.seg-btn');
-        if (!btn) return;
-        pointSel = btn.dataset.point;
-        document.querySelectorAll('#pointSeg .seg-btn').forEach(b=>b.classList.toggle('active', b===btn));
-        updateDescWithPoint();
-      });
+    function approachTextToLatex(txt){
+      let t = String(txt||'');
+      t = t.replace(/pi/gi, '\\pi');
+      t = t.replace(/\*\*/g, '^');
+      t = t.replace(/\*/g, ' ');
+      return t;
     }
-    function updateDescWithPoint(){
-      const d = document.getElementById('desc');
-      if (!d) return;
-      const aText = getPointLabel();
-      const s = STR[lang];
-      const tmpl = s.desc || '';
-      d.textContent = String(tmpl).replace('{a}', aText);
+    function getApproachLabel(){
+      const pm = document.getElementById('pointMath'); const pt = document.getElementById('pointText');
+      try {
+        const mfVisible = pm && pm.style.display !== 'none';
+        if (mfVisible && pm.getValue) {
+          const lx = String(pm.getValue('latex')||'').trim();
+          return lx || '0';
+        }
+        const raw = String(pt ? pt.value||'' : '').trim();
+        return raw ? approachTextToLatex(raw) : '0';
+      } catch { return '0'; }
     }
     async function initAudioHQ(){
       try {
