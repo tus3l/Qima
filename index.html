@@ -257,6 +257,7 @@
           <input id="pointText" class="textfield" placeholder="أدخل قيمة a (مثل π/4 أو 0)" style="display:none" />
           <math-field id="pointMath" class="mathfield" virtual-keyboard-mode="manual" smart-fence placeholder="اكتب قيمة a مثل \pi/4 أو 0"></math-field>
         </div>
+        <div id="approachHUD" class="muted" style="margin-top:6px; font-size:1rem;"></div>
       </div>
       <div id="orderRow" class="control" style="display:none; margin-top:10px;">
         <label id="orderLabel">رتبة السلسلة</label>
@@ -780,6 +781,10 @@
       });
       // apply language texts now
       applyLang();
+      // bind approach HUD updates
+      try { const pm = document.getElementById('pointMath'); if (pm) pm.addEventListener('input', updateApproachHUD); } catch{}
+      try { const pt = document.getElementById('pointText'); if (pt) pt.addEventListener('input', updateApproachHUD); } catch{}
+      updateApproachHUD();
       // mobile keyboard UX hooks
       setupKeyboardUX();
       setupExprUX();
@@ -1185,7 +1190,7 @@
       const expr = getExprInput();
       const need = { sin: /sin\s*\(/.test(expr), cos: /cos\s*\(/.test(expr), tan: /tan\s*\(/.test(expr) };
       let html = '';
-      const aText = (typeof getPointLabel==='function') ? getPointLabel() : '0';
+      const aText = (typeof getApproachLabel==='function') ? getApproachLabel() : '0';
       html += `<div><strong>${(lang==='ar'?'تلميحات السلسلة:':'Series hints:')}</strong></div>`;
       if (aText !== '0') {
         html += `<div class='muted'>${(lang==='ar'? 'اقترب من ':'Approach at ')} x→${aText}. ${(lang==='ar'?'استخدم التحويل ':'Use substitution ')} u = x - ${aText} ${(lang==='ar'?'ثم طبِّق توسعات ماكلورين حول u→0.':'then apply Maclaurin expansions at u→0.')}</div>`;
@@ -1315,6 +1320,14 @@
         // eslint-disable-next-line no-new-func
         return Function(`return (${expr});`)();
       }catch{ return NaN; }
+    }
+    // HUD: عرض x→a تحت حقل نقطة الاقتراب
+    function updateApproachHUD(){
+      const hud = document.getElementById('approachHUD'); if (!hud) return;
+      const aText = (typeof getApproachLabel==='function') ? getApproachLabel() : '0';
+      const content = `\\(x \\to ${aText || '0'}\\)`;
+      hud.innerHTML = content;
+      if (window.MathJax && MathJax.typesetPromise) MathJax.typesetPromise();
     }
     // قراءة قيمة نقطة الاقتراب من الحقل الرياضي/النصي
     function getApproachInput(){
