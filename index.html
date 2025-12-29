@@ -2,7 +2,7 @@
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>نهايات المثلثات (x → a)</title>
   <style>
     :root {
@@ -11,6 +11,10 @@
       --wm-color: rgba(229, 231, 235, 0.06);
     }
     html, body { margin:0; padding:0; background:var(--bg); color:var(--text); font-family: "Cairo", system-ui, -apple-system, Segoe UI, Tahoma, Arial; transition: background 300ms ease, color 300ms ease; }
+    /* Mobile-safe areas and interaction */
+    html, body { min-height: 100%; overscroll-behavior-y: none; }
+    body { padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); }
+    * { -webkit-tap-highlight-color: transparent; }
     .bg { position: fixed; inset: 0; z-index: -1; overflow: hidden; }
     .blob { position: absolute; width: 640px; height: 640px; border-radius: 50%;
       filter: blur(100px); opacity: .16; animation: float 18s ease-in-out infinite;
@@ -20,14 +24,14 @@
     .b2 { background: #a78bfa; bottom: -280px; right: -240px; animation-delay: 4s; }
     .b3 { background: #5b7cff; top: 35%; left: -360px; animation-delay: 8s; }
     @keyframes float { 0%, 100% { transform: translate3d(0,0,0) scale(1);} 50% { transform: translate3d(40px, -30px, 0) scale(1.08);} }
-    .container { max-width: 980px; margin: 40px auto; padding: 0 clamp(12px, 4vw, 24px); }
+    .container { max-width: 980px; margin: 40px auto; padding: 0 clamp(12px, 4vw, 24px); padding-left: max(clamp(12px, 4vw, 24px), env(safe-area-inset-left)); padding-right: max(clamp(12px, 4vw, 24px), env(safe-area-inset-right)); }
     .glass-card { backdrop-filter: blur(16px) saturate(180%); -webkit-backdrop-filter: blur(16px) saturate(180%);
       background-color: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 16px; padding: 20px; box-shadow: 0 8px 20px rgba(0,0,0,0.15); overflow:hidden; }
     h1 { margin-top:0; font-weight:700; }
     .row { display:flex; gap:12px; flex-wrap:wrap; }
     .row > * { flex:1 1 300px; }
-    input, button { width: 100%; padding: 12px 14px; border-radius: 10px; border: 1px solid var(--glass-border); background: rgba(255,255,255,0.08); color: var(--text); font-size:16px; }
-    button { background: var(--accent); color: white; border: none; cursor:pointer; transition: transform 160ms ease, box-shadow 160ms ease; min-height:44px; }
+    input, button { width: 100%; padding: 12px 14px; border-radius: 10px; border: 1px solid var(--glass-border); background: rgba(255,255,255,0.08); color: var(--text); font-size:16px; touch-action: manipulation; }
+    button { background: var(--accent); color: white; border: none; cursor:pointer; transition: transform 160ms ease, box-shadow 160ms ease; min-height:48px; }
     button:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(0,0,0,0.18); }
     .center { text-align:center; }
     .reaction { font-size: 2rem; }
@@ -41,7 +45,7 @@
     .toggle { display:flex; gap:8px; }
     .icon-btn { padding:8px 12px; border-radius: 10px; border: 1px solid var(--glass-border); background: rgba(255,255,255,0.08); color: var(--text); cursor:pointer; }
     .segmented { display:flex; gap:8px; flex-wrap:wrap; width:100%; justify-content:flex-end; }
-    .seg-btn { padding:10px 12px; border-radius:10px; border: 1px solid var(--glass-border); background: rgba(255,255,255,0.08); color: var(--text); cursor:pointer; min-height:44px; }
+    .seg-btn { padding:12px 14px; border-radius:10px; border: 1px solid var(--glass-border); background: rgba(255,255,255,0.08); color: var(--text); cursor:pointer; min-height:48px; }
     .seg-btn.active { background: var(--accent); color:white; }
     .control { display:flex; align-items:center; gap:10px; }
     input[type="range"] { width: 220px; accent-color: var(--accent); }
@@ -65,7 +69,7 @@
     .mathfield { 
       display:block; width:100%; min-height:52px; padding:10px 12px; border-radius:10px; 
       border:1px solid #4A90E2; background: rgba(0,0,0,0.3); color: #ffffff !important; 
-      font-size: clamp(20px, 5vw, 24px);
+      font-size: clamp(20px, 5.5vw, 24px);
       /* MathLive theme variables for clear contrast */
       --ML__background: transparent;
       --ML__placeholder-background: rgba(255, 230, 109, 0.12);
@@ -84,7 +88,7 @@
       display:none;
     }
     .kb-close-btn:hover { background: var(--accent); color: #fff; }
-    .textfield { display:block; width:100%; min-height:52px; padding:10px 12px; border-radius:10px; border:2px solid #4A90E2; background:#ffffff; color:#000000; font-size: clamp(20px, 5vw, 24px); }
+    .textfield { display:block; width:100%; min-height:56px; padding:12px 14px; border-radius:10px; border:2px solid #4A90E2; background:#ffffff; color:#000000; font-size: clamp(20px, 5.5vw, 24px); }
     /* أظهر تبديل الكيبورد الافتراضي لمزايا كاملة */
     /* (إزالة إخفاء التبديل ليستعيد سلوك MathLive الطبيعي) */
     /* Ensure math text color is bright */
@@ -153,6 +157,13 @@
       .segmented { justify-content: space-between; width: 100%; }
       #modeSeg .seg-btn { flex:1 1 auto; }
       .row > * { flex: 1 1 100%; }
+      #pointSeg { width:100%; justify-content: space-between; }
+      #pointSeg .seg-btn { flex: 1 1 calc(33.333% - 8px); }
+      button, .seg-btn { font-size: 1rem; }
+    }
+    @media (max-width: 380px) {
+      button, .seg-btn { padding: 10px 12px; }
+      .textfield, .mathfield { min-height: 52px; }
     }
     /* === Explicit high-contrast overrides requested === */
     math-field {
@@ -240,9 +251,9 @@
         </div>
       </div>
       <!-- اختيار نقطة الاقتراب -->
-      <div class="control" style="margin-top:10px; gap:10px; align-items:center;">
+      <div class="control" style="margin-top:10px; gap:10px; align-items:center; flex-wrap:wrap;">
         <label id="pointLabel">نقطة الاقتراب</label>
-        <div class="segmented" id="pointSeg" style="flex:0 0 auto;">
+        <div class="segmented" id="pointSeg" style="flex:1 1 100%;">
           <button class="seg-btn active" data-point="0">0</button>
           <button class="seg-btn" data-point="pi/4">π/4</button>
           <button class="seg-btn" data-point="pi">π</button>
