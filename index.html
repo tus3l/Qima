@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>نهايات المثلثات (x → 0)</title>
+  <title>نهايات المثلثات (x → a)</title>
   <style>
     :root {
       --bg: #0b1220; --text: #e5e7eb; --muted: #94a3b8; --accent: #a78bfa;
@@ -198,7 +198,7 @@
     </div>
     <div class="glass-card">
       <h1 id="title">🧮 نهايات المثلثات باستخدام ماكلورين</h1>
-      <div class="muted" id="desc">ركز فقط على sin، cos، tan عندما x → 0</div>
+      <div class="muted" id="desc">ركز فقط على sin، cos، tan عندما x → a</div>
     </div>
     <br />
     <div class="glass-card">
@@ -237,6 +237,15 @@
             <button class="mini-btn" data-ins="tan" title="tan">tan</button>
             <button class="mini-btn" data-ins="parens" title="أقواس">( )</button>
           </div>
+        </div>
+      </div>
+      <!-- اختيار نقطة الاقتراب -->
+      <div class="control" style="margin-top:10px; gap:10px; align-items:center;">
+        <label id="pointLabel">نقطة الاقتراب</label>
+        <div class="segmented" id="pointSeg" style="flex:0 0 auto;">
+          <button class="seg-btn active" data-point="0">0</button>
+          <button class="seg-btn" data-point="pi/4">π/4</button>
+          <button class="seg-btn" data-point="pi">π</button>
         </div>
       </div>
       <div id="orderRow" class="control" style="display:none; margin-top:10px;">
@@ -293,6 +302,8 @@
     let theme = 'dark';
     let lang = 'ar';
     let mode = 'solve';
+    // initialize approach point early to avoid TDZ errors in applyLang()
+    let pointSel = '0';
     let lastValue = null;
     let kbTarget = null; // 'ans' or 'expr' to route keyboard ownership
     let reactionList = [];
@@ -332,7 +343,9 @@
     const STR = {
       ar: {
         title: '🧮 نهايات المثلثات باستخدام ماكلورين',
-        desc: 'ركز فقط على sin , cos , tan عندما x → 0',
+        desc: 'ركز فقط على sin , cos , tan عندما x → {a}',
+        pointLabel: 'نقطة الاقتراب',
+        limitAs: 'النهاية عند x→',
         exprLabel: 'التعبير (فقط sin وcos وtan والمتغير x)',
         examples: 'أمثلة: sin(x)/x ، tan(x)/x ، (1-cos(x))/x**2',
         renderNote: 'يتم عرض السؤال بالرموز الرياضية تلقائيًا',
@@ -359,7 +372,9 @@
       },
       en: {
         title: '🧮 Trig Limits via Maclaurin',
-        desc: 'Focus only on sin, cos, tan as x → 0',
+        desc: 'Focus only on sin, cos, tan as x → {a}',
+        pointLabel: 'Approach point',
+        limitAs: 'Limit as x→',
         exprLabel: 'Expression (only sin, cos, tan with x)',
         examples: 'Examples: sin(x)/x, tan(x)/x, (1-cos(x))/x**2',
         renderNote: 'Question is rendered with math symbols automatically',
@@ -399,7 +414,8 @@
       document.documentElement.setAttribute('lang', lang === 'ar' ? 'ar' : 'en');
       document.documentElement.setAttribute('dir', lang === 'ar' ? 'rtl' : 'ltr');
       document.getElementById('title').textContent = s.title;
-      document.getElementById('desc').textContent = s.desc;
+      const aTextForDesc = (typeof getPointLabel === 'function') ? getPointLabel() : 'a';
+      document.getElementById('desc').textContent = String(s.desc).replace('{a}', aTextForDesc);
       // Use LTR isolates for Latin tokens to avoid mixing like "cosg/tang"
       const exprLabel = (lang==='ar') ? 'التعبير (فقط <span class="latin">sin, cos, tan</span> والمتغير x)' : 'Expression (only <span class="latin">sin, cos, tan</span> with x)';
       document.getElementById('exprLabel').innerHTML = exprLabel;
@@ -412,6 +428,7 @@
       btns[0].textContent = s.solve; btns[1].textContent = s.steps; btns[2].textContent = s.game;
       document.getElementById('guide').textContent = s.guide;
       document.getElementById('orderLabel').textContent = s.orderLabel;
+      const pointL = document.getElementById('pointLabel'); if (pointL && s.pointLabel) pointL.textContent = s.pointLabel;
       document.getElementById('orderVal').textContent = s.orderVal(parseInt(document.getElementById('order').value));
       // HUD labels
       const rs = document.getElementById('resetScore'); if (rs) rs.textContent = s.reset;
@@ -479,9 +496,9 @@
       return Function(js)();
     }
 
-    function estimateLimit(expr) {
-      // Evaluate near 0 and average robustly
-      const xs = [1e-4, 5e-5, -5e-5, 1e-5, -1e-5];
+    function estimateLimit(expr, a) {
+      // Evaluate near selected point a and average robustly
+      const xs = [1e-4, 5e-5, -5e-5, 1e-5, -1e-5].map(d => a + d);
       const vals = [];
       for (const xv of xs) {
         const v = evalAt(expr, xv);
@@ -625,8 +642,10 @@
       const expansions = [sinSeriesLatex(n), cosSeriesLatex(n), tanSeriesLatex(n)];
       html += `<div>${expansions.map(e=>`<div>${e}</div>`).join('')}</div>`;
       try {
-        const L = estimateLimit(expr);
-        html += `<p><strong>${(lang==='ar'?'النهاية عند x→0:':'Limit as x→0:')}</strong> ~ ${L.toFixed(6)}</p><br/><button id='copyBtn' class='btn-outline'>${STR[lang].copy}</button>`;
+        const a = getPointValue();
+        const aText = getPointLabel();
+        const L = estimateLimit(expr, a);
+        html += `<p><strong>${STR[lang].limitAs} ${aText}:</strong> ~ ${L.toFixed(6)}</p><br/><button id='copyBtn' class='btn-outline'>${STR[lang].copy}</button>`;
         lastValue = L; attachCopy();
       } catch(e) {
         html += `<p>${s.invalid}</p>`;
@@ -649,8 +668,10 @@
         // hide answer field in solve mode
         document.getElementById('ansBlock').style.display = 'none';
         try {
-          const L = estimateLimit(expr);
-          res.innerHTML = `<p class='fade-in'><strong>${(lang==='ar'?'النهاية عند x→0:':'Limit as x→0:')}</strong> ~ ${L.toFixed(6)}</p>`;
+          const a = getPointValue();
+          const aText = getPointLabel();
+          const L = estimateLimit(expr, a);
+          res.innerHTML = `<p class='fade-in'><strong>${STR[lang].limitAs} ${aText}:</strong> ~ ${L.toFixed(6)}</p>`;
         } catch(e) {
           res.innerHTML = `<div class='reaction pop-in'>😕</div><p class='fade-in'>${STR[lang].invalid}</p>`;
         }
@@ -660,7 +681,8 @@
       } else {
         document.getElementById('ansBlock').style.display = '';
         try {
-          const L = estimateLimit(expr);
+          const a = getPointValue();
+          const L = estimateLimit(expr, a);
           const user = evalLatexNumeric(ans);
           if (typeof user !== 'number' || !Number.isFinite(user)) throw new Error('bad answer');
           const ok = Math.abs(L - user) < 1e-4;
@@ -746,6 +768,9 @@
       });
       // apply language texts now
       applyLang();
+      // bind approach point selector and sync description
+      bindPointSeg();
+      updateDescWithPoint();
       // mobile keyboard UX hooks
       setupKeyboardUX();
       setupExprUX();
@@ -1093,7 +1118,18 @@
       const exprText = document.getElementById('exprText');
       const exprMath = document.getElementById('exprMath');
       const ansMf = document.getElementById('ansMath');
-      exprText.value = q; if (exprMath && exprMath.setValue) exprMath.setValue('', {suppressChangeNotifications: true});
+      // Build question according to current approach point
+      let evalQ = q;
+      try {
+        const a = (typeof getPointValue==='function') ? getPointValue() : 0;
+        if (a !== 0) {
+          const aNum = Number(a);
+          const aStr = '(' + (Number.isFinite(aNum) ? aNum.toPrecision(12) : String(a)) + ')';
+          // replace variable x tokens with (x - a)
+          evalQ = q.replace(/\bx\b/g, `(x - ${aStr})`);
+        }
+      } catch {}
+      exprText.value = evalQ; if (exprMath && exprMath.setValue) exprMath.setValue('', {suppressChangeNotifications: true});
       if (exprMath) exprMath.style.display = 'none'; if (exprText) exprText.style.display='';
       document.getElementById('result').innerHTML = '';
       document.getElementById('result').classList.remove('success-card','fail-card');
@@ -1105,7 +1141,18 @@
         const card = document.getElementById('questionDisplay');
         if (card) {
           card.style.display = '';
-          const latex = toLatex(exprText.value.trim());
+          let latex;
+          try {
+            const aText = (typeof getPointLabel==='function') ? getPointLabel() : '0';
+            if (aText && aText !== '0') {
+              // create a symbolic display using x - (π/4) or x - π
+              const aLatex = (aText === 'π/4') ? '\\frac{\\pi}{4}' : (aText === 'π' ? '\\pi' : aText);
+              const displayQ = q.replace(/\bx\b/g, `(x - ${aLatex})`);
+              latex = toLatex(displayQ);
+            } else {
+              latex = toLatex(exprText.value.trim());
+            }
+          } catch { latex = toLatex(exprText.value.trim()); }
           card.innerHTML = `<div style='font-size:1.2rem'>\\(${latex}\\)</div>`;
           if (window.MathJax && MathJax.typesetPromise) MathJax.typesetPromise();
         }
@@ -1129,7 +1176,11 @@
       const expr = getExprInput();
       const need = { sin: /sin\s*\(/.test(expr), cos: /cos\s*\(/.test(expr), tan: /tan\s*\(/.test(expr) };
       let html = '';
+      const aText = (typeof getPointLabel==='function') ? getPointLabel() : '0';
       html += `<div><strong>${(lang==='ar'?'تلميحات السلسلة:':'Series hints:')}</strong></div>`;
+      if (aText !== '0') {
+        html += `<div class='muted'>${(lang==='ar'? 'اقترب من ':'Approach at ')} x→${aText}. ${(lang==='ar'?'استخدم التحويل ':'Use substitution ')} u = x - ${aText} ${(lang==='ar'?'ثم طبِّق توسعات ماكلورين حول u→0.':'then apply Maclaurin expansions at u→0.')}</div>`;
+      }
       const n = parseInt(document.getElementById('order').value);
       if (need.sin) html += `<div>${sinSeriesLatex(n)}</div>`;
       if (need.cos) html += `<div>${cosSeriesLatex(n)}</div>`;
@@ -1256,10 +1307,40 @@
         return Function(`return (${expr});`)();
       }catch{ return NaN; }
     }
+    // تحديد نقطة الاقتراب: 0 أو π/4 أو π
+    function getPointLabel(){
+      if (pointSel === 'pi/4') return 'π/4';
+      if (pointSel === 'pi') return 'π';
+      return '0';
+    }
+    function getPointValue(){
+      if (pointSel === 'pi/4') return Math.PI/4;
+      if (pointSel === 'pi') return Math.PI;
+      return 0;
+    }
+    function bindPointSeg(){
+      const seg = document.getElementById('pointSeg'); if (!seg) return;
+      seg.addEventListener('click', (e)=>{
+        const btn = e.target.closest('.seg-btn');
+        if (!btn) return;
+        pointSel = btn.dataset.point;
+        document.querySelectorAll('#pointSeg .seg-btn').forEach(b=>b.classList.toggle('active', b===btn));
+        updateDescWithPoint();
+      });
+    }
+    function updateDescWithPoint(){
+      const d = document.getElementById('desc');
+      if (!d) return;
+      const aText = getPointLabel();
+      const s = STR[lang];
+      const tmpl = s.desc || '';
+      d.textContent = String(tmpl).replace('{a}', aText);
+    }
     async function initAudioHQ(){
       try {
         if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        const resp = await fetch('audio/clap.mp3', { cache: 'no-store' });
+        // fetch an existing file (applause.wav) to avoid 404s
+        const resp = await fetch('audio/applause.wav', { cache: 'no-store' });
         const buf = await resp.arrayBuffer();
         applauseBuffer = await audioCtx.decodeAudioData(buf);
         return true;
