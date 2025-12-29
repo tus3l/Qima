@@ -1,1402 +1,457 @@
-<!doctype html>
-<html lang="ar" dir="rtl">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>نهايات المثلثات (x → a)</title>
-  <style>
-    :root {
-      --bg: #0b1220; --text: #e5e7eb; --muted: #94a3b8; --accent: #a78bfa;
-      --glass-bg: rgba(17, 24, 39, 0.45); --glass-border: rgba(148, 163, 184, 0.4);
-      --wm-color: rgba(229, 231, 235, 0.06);
-    }
-    html, body { margin:0; padding:0; background:var(--bg); color:var(--text); font-family: "Cairo", system-ui, -apple-system, Segoe UI, Tahoma, Arial; transition: background 300ms ease, color 300ms ease; }
-    /* Mobile-safe areas and interaction */
-    html, body { min-height: 100%; overscroll-behavior-y: none; }
-    body { padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); }
-    * { -webkit-tap-highlight-color: transparent; }
-    .bg { position: fixed; inset: 0; z-index: -1; overflow: hidden; }
-    .blob { position: absolute; width: 640px; height: 640px; border-radius: 50%;
-      filter: blur(100px); opacity: .16; animation: float 18s ease-in-out infinite;
-      pointer-events: none; mix-blend-mode: screen;
-            -webkit-mask-image: radial-gradient(closest-side, rgba(0,0,0,.9), rgba(0,0,0,0));
-              mask-image: radial-gradient(closest-side, rgba(0,0,0,.9), rgba(0,0,0,0)); }
-    .b2 { background: #a78bfa; bottom: -280px; right: -240px; animation-delay: 4s; }
-    .b3 { background: #5b7cff; top: 35%; left: -360px; animation-delay: 8s; }
-    @keyframes float { 0%, 100% { transform: translate3d(0,0,0) scale(1);} 50% { transform: translate3d(40px, -30px, 0) scale(1.08);} }
-    .container { max-width: 980px; margin: 40px auto; padding: 0 clamp(12px, 4vw, 24px); padding-left: max(clamp(12px, 4vw, 24px), env(safe-area-inset-left)); padding-right: max(clamp(12px, 4vw, 24px), env(safe-area-inset-right)); }
-    .glass-card { backdrop-filter: blur(16px) saturate(180%); -webkit-backdrop-filter: blur(16px) saturate(180%);
-      background-color: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 16px; padding: 20px; box-shadow: 0 8px 20px rgba(0,0,0,0.15); overflow:hidden; }
-    h1 { margin-top:0; font-weight:700; }
-    .row { display:flex; gap:12px; flex-wrap:wrap; }
-    .row > * { flex:1 1 300px; }
-    input, button { width: 100%; padding: 12px 14px; border-radius: 10px; border: 1px solid var(--glass-border); background: rgba(255,255,255,0.08); color: var(--text); font-size:16px; touch-action: manipulation; }
-    button { background: var(--accent); color: white; border: none; cursor:pointer; transition: transform 160ms ease, box-shadow 160ms ease; min-height:48px; }
-    button:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(0,0,0,0.18); }
-    .center { text-align:center; }
-    .reaction { font-size: 2rem; }
-    img.reaction-img { width: 260px; max-width: 100%; aspect-ratio: 1/1; object-fit: cover; border-radius: 12px; border: 1px solid var(--glass-border); }
-    /* Animations */
-    .fade-in { animation: fadeIn 320ms ease-out; }
-    @keyframes fadeIn { from { opacity:0; transform: translateY(8px) scale(.98);} to {opacity:1; transform: translateY(0) scale(1);} }
-    @keyframes popIn { 0%{ transform: scale(.92);} 60%{ transform: scale(1.03);} 100%{ transform: scale(1);} }
-    .reaction-img { animation: fadeIn 340ms ease-out; }
-    .topbar { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom: 16px; }
-    .toggle { display:flex; gap:8px; }
-    .icon-btn { padding:8px 12px; border-radius: 10px; border: 1px solid var(--glass-border); background: rgba(255,255,255,0.08); color: var(--text); cursor:pointer; }
-    .segmented { display:flex; gap:8px; flex-wrap:wrap; width:100%; justify-content:flex-end; }
-    .seg-btn { padding:12px 14px; border-radius:10px; border: 1px solid var(--glass-border); background: rgba(255,255,255,0.08); color: var(--text); cursor:pointer; min-height:48px; }
-    .seg-btn.active { background: var(--accent); color:white; }
-    .control { display:flex; align-items:center; gap:10px; }
-    input[type="range"] { width: 220px; accent-color: var(--accent); }
-    .btn-outline { padding:8px 12px; border-radius:10px; border:1px solid var(--glass-border); background: transparent; color: var(--text); cursor:pointer; }
-    .btn-outline:hover { background: rgba(255,255,255,0.08); }
-    .overlay { position: fixed; inset:0; pointer-events:none; }
-    .confetti { position:absolute; font-size: 22px; animation: fall 1000ms ease-in forwards; }
-    @keyframes fall { 0%{ transform: translateY(-20px) rotate(0deg); opacity:1;} 100%{ transform: translateY(120px) rotate(360deg); opacity:0;} }
-    /* لوحة إدخال مصغّرة للكسور والأس والجذر */
-    .keypad { display:flex; gap:6px; margin-top:8px; flex-wrap:wrap; }
-    .mini-btn { padding:6px 10px; border-radius:8px; border:1px solid var(--glass-border); background: rgba(255,255,255,0.08); color: var(--text); cursor:pointer; width:auto; }
-    .mini-btn:hover { background: var(--accent); color:white; }
-    .latin { direction:ltr; unicode-bidi: isolate; }
-    /* Answer-area menu + tip */
-    .ans-menu { position: relative; display:inline-block; margin: 6px 0; }
-    .ans-menu-btn { width: 36px; height: 36px; border-radius: 10px; border:1px solid var(--glass-border); background: rgba(255,255,255,0.08); color: var(--text); display:flex; align-items:center; justify-content:center; font-size:18px; cursor:pointer; }
-    .ans-menu-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(0,0,0,0.18); }
-    .ans-menu-tip { position: absolute; bottom: 100%; inset-inline-start: 0; margin-bottom: 8px; z-index: 10; background: var(--glass-bg); color: var(--text); border:1px solid var(--glass-border); border-radius: 12px; padding: 6px 10px; box-shadow: 0 8px 20px rgba(0,0,0,0.18); font-size: 13px; max-width: 280px; display:none; }
-    .ans-menu-tip:after { content: ''; position:absolute; inset-inline-start: 14px; top: 100%; width:0; height:0; border-left: 8px solid transparent; border-right: 8px solid transparent; border-top: 8px solid var(--glass-bg); }
-    /* MathLive field styling */
-    .mathfield { 
-      display:block; width:100%; min-height:52px; padding:10px 12px; border-radius:10px; 
-      border:1px solid #4A90E2; background: rgba(0,0,0,0.3); color: #ffffff !important; 
-      font-size: clamp(20px, 5.5vw, 24px);
-      /* MathLive theme variables for clear contrast */
-      --ML__background: transparent;
-      --ML__placeholder-background: rgba(255, 230, 109, 0.12);
-      --ML__selection-background: rgba(167, 139, 250, 0.28);
-      --ML__caret-color: #ffffff;
-      -webkit-tap-highlight-color: transparent;
-      touch-action: manipulation;
-    }
-    .mathfield-container { position: relative; }
-    .kb-close-btn {
-      position: fixed; right: 12px; bottom: 56px; z-index: 10000;
-      padding: 6px 10px; border-radius: 12px;
-      border: 1px solid var(--glass-border);
-      background: var(--accent); color: #fff;
-      box-shadow: 0 6px 18px rgba(0,0,0,0.18);
-      display:none;
-    }
-    .kb-close-btn:hover { background: var(--accent); color: #fff; }
-    .textfield { display:block; width:100%; min-height:56px; padding:12px 14px; border-radius:10px; border:2px solid #4A90E2; background:#ffffff; color:#000000; font-size: clamp(20px, 5.5vw, 24px); }
-    /* أظهر تبديل الكيبورد الافتراضي لمزايا كاملة */
-    /* (إزالة إخفاء التبديل ليستعيد سلوك MathLive الطبيعي) */
-    /* Ensure math text color is bright */
-    .mathfield .ML__math, .mathfield .ML__content { color:#ffffff !important; }
-    /* إيقاف أي تمويه للخلفية خلف كيبورد MathLive */
-    .ML__keyboard { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; border-radius: 0; box-shadow: none; background: transparent !important; }
-    /* إزالة فرض التموضع السفلي الثابت لإرجاع السلوك الطبيعي للكيبورد */
-    /* إزالة قيود الـ slot والـ body لاستعادة المكان الطبيعي للكيبورد */
-    /* Dismiss button to close keyboard */
-    .kb-dismiss { position: fixed; right: 12px; bottom: 56px; z-index: 10000; padding: 8px 12px; border-radius: 999px; border: 1px solid var(--glass-border); background: rgba(255,255,255,0.12); color: var(--text); box-shadow: 0 6px 18px rgba(0,0,0,0.18); display:none; }
-    .kb-dismiss:hover { background: var(--accent); color: #fff; }
-    /* Container uses dynamic viewport height */
-    .container { min-height: 100dvh; }
-    /* تحسين وضوح مربعات الكسر (Placeholders) في الوضع الداكن */
-    .mathfield .ML__placeholder { background: transparent !important; box-shadow: none; border-radius: 6px; }
-    .mathfield .ML__placeholder.ML__empty { 
-      background: rgba(255,230,109,0.12) !important;
-      box-shadow: inset 0 0 0 2px #FFE66D;
-      min-width: 20px; min-height: 24px;
-    }
-    .mathfield .ML__placeholder:not(.ML__empty) { background: transparent !important; box-shadow: none; }
-    /* إزالة أي خلفية افتراضية قد تظهر خلف البسط/المقام أثناء الكتابة */
-    .mathfield .ML__box,
-    .mathfield .ML__content,
-    .mathfield .ML__math,
-    .mathfield .ML__numerator,
-    .mathfield .ML__denominator,
-    .mathfield .ML__group { background-color: transparent !important; }
-    .mathfield .ML__group.ML__active,
-    .mathfield .ML__group.ML__focused,
-    .mathfield .ML__box.ML__active,
-    .mathfield .ML__box.ML__focused { background-color: transparent !important; }
-    /* إزالة أي تعبئة داخل محتوى الصندوق أثناء الكتابة */
-    .mathfield .ML__box .ML__content { background-color: transparent !important; }
-    /* تأكيد عدم ظهور خلفية لأي عنصر محدد/مركّز في الوضع الداكن */
-    .mathfield .ML__selected,
-    .mathfield .ML__focus { background-color: transparent !important; }
-    .mathfield .ML__selection { background: rgba(167, 139, 250, 0.25); }
-    .mathfield .ML__caret { border-left-color: #ffffff; }
-    /* شارات صغيرة للميتركز */
-    #streakLabel, #accLabel { padding: 4px 8px; border-radius: 999px; background: rgba(255,255,255,0.05); }
-    /* خلفية نصية شفافة لكلمات sin/cos/tan */
-    .wm { position: fixed; inset:0; z-index: -1; pointer-events:none; }
-    .wm span { position:absolute; color: var(--wm-color); font-weight:700; letter-spacing: .08em; user-select:none; filter: blur(.2px); font-size: clamp(18px, 6vw, 44px); }
-    /* كروت نتيجة مميزة في وضع التدريب */
-    .success-card { box-shadow: 0 10px 30px rgba(16,185,129,.18), inset 0 0 0 1px rgba(16,185,129,.25); }
-    .fail-card { box-shadow: 0 10px 30px rgba(239,68,68,.18), inset 0 0 0 1px rgba(239,68,68,.25); }
-    .headline { font-size: clamp(18px, 2.4vw, 22px); font-weight: 700; }
-    /* خفض التأثير في الشاشات القصيرة أو الصغيرة */
-    @media (max-width: 768px), (max-height: 820px) {
-      .blob { opacity: .12; filter: blur(80px); width: 520px; height: 520px; }
-      .b2 { bottom: -340px; right: -260px; }
-      .b3 { display:none; }
-    }
-    .scorebar { display:flex; align-items:center; gap:12px; }
-    .bar { flex:1; height: 10px; border-radius: 999px; background: rgba(255,255,255,0.12); overflow:hidden; }
-    .bar > span { display:block; height:100%; width:0%; background: var(--accent); transition: width 300ms ease; }
-    .score { min-width: 120px; }
-    @media (prefers-reduced-motion: reduce) {
-      .blob, .fade-in, .pop-in, .reaction-img, .confetti { animation: none !important; }
-      html, body { transition: none; }
-    }
-    /* تحسين الاستجابة للجوالات */
-    @media (max-width: 640px) {
-      .topbar { flex-wrap: wrap; gap:10px; }
-      .segmented { justify-content: space-between; width: 100%; }
-      #modeSeg .seg-btn { flex:1 1 auto; }
-      .row > * { flex: 1 1 100%; }
-      #pointSeg { width:100%; justify-content: space-between; }
-      #pointSeg .seg-btn { flex: 1 1 calc(33.333% - 8px); }
-      button, .seg-btn { font-size: 1rem; }
-    }
-    @media (max-width: 380px) {
-      button, .seg-btn { padding: 10px 12px; }
-      .textfield, .mathfield { min-height: 52px; }
-    }
-    /* === Explicit high-contrast overrides requested === */
-    math-field {
-      color: #000000 !important;
-      background-color: #ffffff !important;
-      border: 2px solid #4A90E2 !important;
-      font-size: 1.5rem !important;
-      display: block; width: 100%;
-      --caret-color: #ff0000 !important; /* some builds use this var */
-      --ML__caret-color: #ff0000 !important; /* MathLive caret color */
-    }
-    math-field::part(content) { color: #000000 !important; }
-    math-field::part(placeholder) { color: #4A90E2 !important; opacity: 0.8; }
-    math-field:focus-within {
-      outline: 2px solid #ffaa00 !important;
-      background-color: #f0f8ff !important;
-    }
-  </style>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
-  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js" async></script>
-  <!-- MathLive for WYSIWYG math input -->
-  <link rel="stylesheet" href="https://unpkg.com/mathlive/dist/mathlive.min.css">
-  <script type="module">import 'https://unpkg.com/mathlive?module';</script>
-</head>
-<body>
-  <div class="bg"><span class="blob b1"></span><span class="blob b2"></span><span class="blob b3"></span></div>
-  <div class="wm" id="wm"></div>
-  <div class="container">
-    <div class="topbar">
-      <div class="toggle">
-        <button class="icon-btn" id="themeBtn" title="المظهر">🌙</button>
-        <button class="icon-btn" id="langBtn" title="اللغة">AR/EN</button>
-        <button class="icon-btn" id="guideBtn" title="الدليل">📘</button>
-      </div>
-      <div style="flex:1"></div>
-      <div class="segmented" id="modeSeg">
-        <button class="seg-btn active" data-mode="solve">احسب النهاية</button>
-        <button class="seg-btn" data-mode="steps">عرض الخطوات</button>
-        <button class="seg-btn" data-mode="game">وضع التدريب</button>
-      </div>
-    </div>
-    <div class="glass-card">
-      <h1 id="title">🧮 نهايات المثلثات باستخدام ماكلورين</h1>
-      <div class="muted" id="desc">ركز فقط على sin، cos، tan عندما x → a</div>
-    </div>
-    <br />
-    <div class="glass-card">
-      <div class="row">
-        <div>
-          <label id="exprLabel">التعبير (فقط sin, cos, tan و المتغير x)</label>
-          <div id="exprFieldContainer" class="mathfield-container">
-            <input id="exprText" value="tan(x)/x" class="textfield" placeholder="أدخل السؤال كنص (يدعم لاتكس)" />
-            <math-field id="exprMath" class="mathfield" virtual-keyboard-mode="manual" smart-fence style="display:none" placeholder="أدخل السؤال باللاتكس أو استخدم الأزرار"></math-field>
-          </div>
-          <div class="muted" id="examples">أمثلة: sin(x)/x ، tan(x)/x ، (1-cos(x))/x**2</div>
-          <div class="muted" id="renderNote" style="margin-top:6px;">يتم عرض السؤال بالرموز الرياضية تلقائيًا</div>
-          <div id="questionDisplay" class="glass-card center" style="display:none; margin-top:8px;"></div>
-          
-        </div>
-        <div id="ansBlock">
-          <label id="ansLabel">النص</label>
-          <div id="hintMini" class="muted" style="display:none; margin:6px 0 8px 0;"></div>
-          <div class="ans-menu" id="ansMenu">
-            <button id="ansMenuBtn" class="ans-menu-btn" aria-label="menu">≡</button>
-            <div id="ansMenuTip" class="ans-menu-tip"></div>
-          </div>
-          <div id="ansHelp" class="muted" style="margin:4px 0 6px 0;">يمكنك إضافة الكسور من هنا</div>
-          <div id="math-field-container" class="mathfield-container">
-            <input id="ansText" class="textfield" placeholder="أدخل الإجابة كنص (يدعم لاتكس)" />
-            <math-field id="ansMath" class="mathfield" virtual-keyboard-mode="manual" smart-fence style="display:none" placeholder="أدخل الإجابة باللاتكس أو استخدم الأزرار"></math-field>
-            <button id="kbClose" class="kb-close-btn" aria-label="close">✕</button>
-          </div>
-          <div class="keypad" id="ansPad">
-            <button class="mini-btn" data-ins="frac" title="إدراج كسر">كسر</button>
-            <button class="mini-btn" data-ins="pow" title="إدراج أس">أس</button>
-            <button class="mini-btn" data-ins="sqrt" title="إدراج جذر">جذر √</button>
-            <button class="mini-btn" data-ins="pi" title="pi">π</button>
-            <button class="mini-btn" data-ins="sin" title="sin">sin</button>
-            <button class="mini-btn" data-ins="cos" title="cos">cos</button>
-            <button class="mini-btn" data-ins="tan" title="tan">tan</button>
-            <button class="mini-btn" data-ins="parens" title="أقواس">( )</button>
-          </div>
-        </div>
-      </div>
-      <!-- نقطة الاقتراب: إدخال رياضي/نصي -->
-      <div class="control" style="margin-top:10px; gap:10px; align-items:center; flex-wrap:wrap;">
-        <label id="pointLabel">نقطة الاقتراب</label>
-        <div id="point-field-container" class="mathfield-container" style="flex:1 1 100%;">
-          <input id="pointText" class="textfield" placeholder="أدخل قيمة a (مثل π/4 أو 0)" style="display:none" />
-          <math-field id="pointMath" class="mathfield" virtual-keyboard-mode="manual" smart-fence placeholder="اكتب قيمة a مثل \pi/4 أو 0"></math-field>
-        </div>
-        <div id="approachHUD" class="muted" style="margin-top:6px; font-size:1rem;"></div>
-      </div>
-      <div id="orderRow" class="control" style="display:none; margin-top:10px;">
-        <label id="orderLabel">رتبة السلسلة</label>
-        <input id="order" type="range" min="3" max="11" step="2" value="7" />
-        <span class="muted" id="orderVal">n=7</span>
-      </div>
-      <div id="gameToolbar" class="control" style="display:none; margin-top:10px; gap:8px; flex-wrap:wrap;">
-        <div class="segmented" id="diffSeg" style="flex:1 1 auto; justify-content:flex-start;">
-          <button class="seg-btn active" data-diff="easy">سهل</button>
-          <button class="seg-btn" data-diff="med">متوسط</button>
-          <button class="seg-btn" data-diff="hard">صعب</button>
-        </div>
-        <button class="btn-outline" id="newQ" style="flex:0 0 auto;">🎲 سؤال جديد</button>
-        <button class="btn-outline" id="hintBtn" style="flex:0 0 auto;">💡 تلميح</button>
-      </div>
-      <!-- مكان ثابت لوضع خانة الإجابة تحت زر التلميح في وضع التدريب -->
-      <div id="ansContainer" style="display:none; margin-top:8px;"></div>
-      <br />
-      <button id="check">تحقق</button>
-    </div>
-    <br />
-    <div id="hint" class="glass-card" style="display:none;"></div>
-    <br />
-    <div id="result" class="glass-card center"></div>
-    <br />
-    <div id="hud" class="glass-card" style="display:none;">
-      <div class="scorebar">
-        <div class="score" id="scoreLabel">النقاط: 0</div>
-        <div class="bar"><span id="progressFill"></span></div>
-        <button class="btn-outline" id="resetScore">إعادة التعيين</button>
-      </div>
-      <div class="muted" style="margin-top:8px; display:flex; gap:14px; flex-wrap:wrap;">
-        <span id="streakLabel">سلسلة صحيحة: 0🔥</span>
-        <span id="accLabel">الدقة: 0%</span>
-      </div>
-    </div>
-    <br />
-    <div id="guide" class="glass-card" style="white-space:pre-wrap"></div>
-  </div>
+import streamlit as st
+import sympy as sp
+try:
+    # Streamlit component for visual math input (MathQuill/MathLive)
+    from st_math_input import st_math_input  # type: ignore
+except Exception:
+    st_math_input = None
+try:
+    from sympy.parsing.latex import parse_latex
+except Exception:
+    parse_latex = None
+from dataclasses import dataclass
+from typing import Dict, List, Tuple, Optional
 
-  <!-- يفضل استخدام mp3، مع بديل wav إذا لم يتوفر -->
-  <audio id="applause" preload="auto">
-    <source src="audio/clap.mp3" type="audio/mpeg" />
-    <source src="audio/applause.wav" type="audio/wav" />
-  </audio>
-  <div class="overlay" id="overlay"></div>
-  <!-- Mobile keyboard dismiss button removed as requested -->
-  
+# ==========================
+# Page Config
+# ==========================
+st.set_page_config(page_title="Xmath: Trig Limits via Maclaurin", page_icon="🧮", layout="centered")
 
-  <script>
-    const LIGHT = { '--bg':'#f6f8ff','--text':'#0f172a','--muted':'#475569','--accent':'#5b7cff','--glass-bg':'rgba(255,255,255,0.75)','--glass-border':'rgba(15, 23, 42, 0.08)','--wm-color':'rgba(15, 23, 42, 0.05)' };
-    const DARK  = { '--bg':'#0b1220','--text':'#e5e7eb','--muted':'#94a3b8','--accent':'#a78bfa','--glass-bg':'rgba(17,24,39,0.45)','--glass-border':'rgba(148,163,184,0.4)','--wm-color':'rgba(229, 231, 235, 0.06)' };
-    let theme = 'dark';
-    let lang = 'ar';
-    let mode = 'solve';
-    // initialize approach point early to avoid TDZ errors in applyLang()
-    let pointSel = '0';
-    let lastValue = null;
-    let kbTarget = null; // 'ans' or 'expr' to route keyboard ownership
-    let reactionList = [];
-    let reactionMessages = null; // رسائل اختيارية تُحمَّل من ملف reactions/messages.json
-    let audioCtx = null, applauseBuffer = null;
-    // تعاريف مبكرة لقيم HUD لضمان توفرها قبل أي استدعاء
-    let score = 0, attempts = [], streak = 0, correct = 0, total = 0;
-    const REACTION_MSG_DEFAULT = {
-      ar: {
-        '1': 'مستحيل حلك كذا !!',
-        '2': 'مدري شقول الصراحه',
-        '3': 'الواضح ما براسك علم',
-        '4': 'حاول تفكر ذا حل انسان ؟',
-        '5': 'هذا انت ونت تقول بذاكر ونت كذاب',
-        '6': 'لو الحل الجاي خطاء بتنجلد',
-        '7': 'متأكد انت دارس',
-        '8': 'ياخي انت كيف كذا؟',
-        '9': 'كذا كثير !!',
-        '10': '',
-        '11': 'تفكر و تفكر و تفكر واخر شي ذا حلك !'
-      },
-      en: {
-        '1': 'No way that’s correct!!',
-        '2': 'Honestly… I’ve got no words.',
-        '3': 'Clearly needs more study',
-        '4': 'Think it through like a human?',
-        '5': "This is you saying you'll study, but lying.",
-        '6': 'Better get the next one right.',
-        '7': 'Are you sure you studied?',
-        '8': 'How did you even do that?',
-        '9': 'That’s a bit much!',
-        '10': '',
-        '11': 'You think and think… and that’s your answer!'
-      }
-    };
+# ==========================
+# Utility: Applause Generator (base64 WAV, no external files)
+# ==========================
+import io, wave, struct, random, math, base64
 
-    const STR = {
-      ar: {
-        title: '🧮 نهايات المثلثات باستخدام ماكلورين',
-        desc: 'ركز فقط على sin , cos , tan عندما x → {a}',
-        pointLabel: 'نقطة الاقتراب',
-        limitAs: 'النهاية عند x→',
-        exprLabel: 'التعبير (فقط sin وcos وtan والمتغير x)',
-        examples: 'أمثلة: sin(x)/x ، tan(x)/x ، (1-cos(x))/x**2',
-        renderNote: 'يتم عرض السؤال بالرموز الرياضية تلقائيًا',
-        exprPlaceholderText: 'أدخل السؤال كنص (يدعم لاتكس)',
-        exprPlaceholderMath: 'أدخل السؤال باللاتكس أو استخدم الأزرار',
-        ansLabel: 'النص',
-        check: 'تحقق',
-        orderLabel: 'رتبة السلسلة',
-        orderVal: (n)=>`n=${n}`,
-        solve: 'احسب النهاية', steps: 'عرض الخطوات', game: 'وضع التدريب',
-        invalid: 'إدخال غير صالح. استخدم فقط sin وcos وtan والمتغير x.',
-        success: 'عمل رائع! الإجابة صحيحة', fail: 'ليست صحيحة — حاول مرة أخرى',
-        copy: '📋 نسخ',
-        points: (n)=>`النقاط: ${n}`,
-        reset: 'إعادة التعيين',
-        menuTip: 'لإضافة خصائص أكثر مثل المصفوفة وغيرها — من هنا',
-        ansHelp: 'يمكنك إضافة الكسور من هنا',
-        ansPlaceholder: 'أدخل الإجابة باللاتكس أو استخدم الأزرار',
-        diff: { easy: 'سهل', med: 'متوسط', hard: 'صعب' },
-        newQ: '🎲 سؤال جديد',
-        hintBtn: '💡 تلميح',
-        keypad: { frac: 'كسر', pow: 'أس', sqrt: 'جذر √' },
-        guide: `📘 دليل سريع للإدخال الرياضي\n\nملاحظة: إن ظهر السؤال برموز رياضية (مثل \dfrac، الأس، الجذر)، فهذا عرضٌ لتوضيح الشكل. اكتب أو عدّل السؤال في الحقل العلوي، ويمكنك فتح الكيبورد الرياضي من القائمة.\n\n- اكتب الرموز اللاتينية: sin, cos, tan والمتغير x داخل الحقل.\n- زر "كسر" يُدخل قالب كسر حقيقي: يظهر مربعان للبسط والمقام.\n  • استخدم الأسهم أو Tab للتنقل بين المربعات.\n- القسمة العادية: a/b — والأس: a^{n} أو زر "أس" \n مع العلم علامة الاس هي *.\n- الجذر: زر "جذر √" — و π: زر "π".\n- الأقواس: زر "( )" لإنشاء أقواس جاهزة.\n- أمثلة سريعة:\n  • sin(x)/x\n  • (1 - cos(2*x)) / x**2\n  • \\frac{1 - \\cos(2x)}{x^2}\n- بعد إدراج الكسر ينتقل المؤشر تلقائيًا إلى البسط لتسهيل الكتابة.\n- في وضع التدريب: استخدم "🎲 سؤال جديد" و"💡 تلميح" لعرض توسعات ماكلورين، وراقب الدقة والسلسلة في HUD.`
-      },
-      en: {
-        title: '🧮 Trig Limits via Maclaurin',
-        desc: 'Focus only on sin, cos, tan as x → {a}',
-        pointLabel: 'Approach point',
-        limitAs: 'Limit as x→',
-        exprLabel: 'Expression (only sin, cos, tan with x)',
-        examples: 'Examples: sin(x)/x, tan(x)/x, (1-cos(x))/x**2',
-        renderNote: 'Question is rendered with math symbols automatically',
-        exprPlaceholderText: 'Enter the question as text (LaTeX supported)',
-        exprPlaceholderMath: 'Enter the question in LaTeX or use buttons',
-        ansLabel: 'Text',
-        check: 'Check',
-        orderLabel: 'Series order',
-        orderVal: (n)=>`n=${n}`,
-        solve: 'Quick Solve', steps: 'Step-by-Step', game: 'Training Mode',
-        invalid: 'Invalid input. Use only sin, cos, tan and variable x.',
-        success: 'Great job! Correct answer', fail: 'Not correct — try again',
-        copy: '📋 Copy',
-        points: (n)=>`Points: ${n}`,
-        reset: 'Reset',
-        menuTip: 'For more features like matrices, open this menu',
-        ansHelp: 'You can insert fractions here',
-        ansPlaceholder: 'Enter the answer in LaTeX or use buttons',
-        diff: { easy: 'Easy', med: 'Medium', hard: 'Hard' },
-        newQ: '🎲 New Question',
-        hintBtn: '💡 Hint',
-        keypad: { frac: 'Frac', pow: 'Pow', sqrt: '√' },
-        guide: `📘 Guide\n\nNote: If the question appears with mathematical symbols (like \\dfrac, powers, sqrt), that’s just visual rendering. Enter or edit the question in the top field and open the math keyboard from the menu.\n\n- Use sin(x), cos(x), tan(x); power with **; pi for π; add parentheses for complex operations.`
-      }
-    };
+def generate_applause_wav_base64(duration: float = 1.2, sample_rate: int = 22050) -> str:
+    n_samples = int(duration * sample_rate)
+    audio = []
+    # Create multiple short bursts to resemble claps
+    bursts = [random.randint(0, max(1, n_samples - int(0.05*sample_rate))) for _ in range(12)]
+    burst_duration = int(0.015 * sample_rate)
+    for i in range(n_samples):
+        t = i / sample_rate
+        base_env = math.exp(-2.0 * t)  # global decay
+        value = random.uniform(-1, 1) * base_env * 0.25
+        for b in bursts:
+            if b <= i < b + burst_duration:
+                local_env = 1.0 - (i - b) / max(1, burst_duration)
+                value += random.uniform(-1, 1) * 0.9 * local_env
+        # clip
+        value = max(-1.0, min(1.0, value))
+        audio.append(int(value * 32767))
+    buf = io.BytesIO()
+    with wave.open(buf, 'wb') as wf:
+        wf.setnchannels(1)
+        wf.setsampwidth(2)
+        wf.setframerate(sample_rate)
+        wf.writeframes(b''.join(struct.pack('<h', s) for s in audio))
+    return base64.b64encode(buf.getvalue()).decode('ascii')
 
-    function applyTheme() {
-      const vars = theme === 'light' ? LIGHT : DARK;
-      for (const k in vars) document.documentElement.style.setProperty(k, vars[k]);
-      document.getElementById('themeBtn').textContent = theme === 'light' ? '🌙' : '☀️';
-      // تحديث تموضع/ألوان العلامة المائية عند تغيير الثيم
-      populateWatermark();
-    }
+@st.cache_data(show_spinner=False)
+def get_applause_b64() -> str:
+    return generate_applause_wav_base64()
 
-    function applyLang() {
-      const s = STR[lang];
-      document.documentElement.setAttribute('lang', lang === 'ar' ? 'ar' : 'en');
-      document.documentElement.setAttribute('dir', lang === 'ar' ? 'rtl' : 'ltr');
-      document.getElementById('title').textContent = s.title;
-      document.getElementById('desc').textContent = s.desc;
-      // Use LTR isolates for Latin tokens to avoid mixing like "cosg/tang"
-      const exprLabel = (lang==='ar') ? 'التعبير (فقط <span class="latin">sin, cos, tan</span> والمتغير x)' : 'Expression (only <span class="latin">sin, cos, tan</span> with x)';
-      document.getElementById('exprLabel').innerHTML = exprLabel;
-      document.getElementById('examples').textContent = s.examples;
-      const rn = document.getElementById('renderNote'); if (rn && s.renderNote) rn.textContent = s.renderNote;
-      document.getElementById('ansLabel').textContent = s.ansLabel;
-      document.getElementById('check').textContent = s.check;
-      const seg = document.getElementById('modeSeg');
-      const btns = seg.querySelectorAll('.seg-btn');
-      btns[0].textContent = s.solve; btns[1].textContent = s.steps; btns[2].textContent = s.game;
-      document.getElementById('guide').textContent = s.guide;
-      document.getElementById('orderLabel').textContent = s.orderLabel;
-      const pointL = document.getElementById('pointLabel'); if (pointL && s.pointLabel) pointL.textContent = s.pointLabel;
-      document.getElementById('orderVal').textContent = s.orderVal(parseInt(document.getElementById('order').value));
-      // HUD labels
-      const rs = document.getElementById('resetScore'); if (rs) rs.textContent = s.reset;
-      const st = document.getElementById('streakLabel'); if (st) st.textContent = (lang==='ar'? `سلسلة صحيحة: ${streak}🔥` : `Streak: ${streak}🔥`);
-      const ac = document.getElementById('accLabel'); if (ac) {
-        const acc = total? Math.round((correct/total)*100) : 0;
-        ac.textContent = (lang==='ar'? `الدقة: ${acc}%` : `Accuracy: ${acc}%`);
-      }
-      const ah = document.getElementById('ansHelp'); if (ah) ah.textContent = s.ansHelp;
-      const mt = document.getElementById('ansMenuTip'); if (mt) mt.textContent = s.menuTip;
-      const kb = document.getElementById('kbDismiss'); if (kb) kb.textContent = (lang==='ar'? 'تم' : 'Done');
-      // Placeholder for MathLive
-      const mf = document.getElementById('ansMath'); if (mf && s.ansPlaceholder) mf.setAttribute('placeholder', s.ansPlaceholder);
-      const tx = document.getElementById('ansText'); if (tx) tx.setAttribute('placeholder', (lang==='ar'? 'أدخل الإجابة كنص (يدعم لاتكس)' : 'Enter answer as text (LaTeX supported)'));
-      // Expression field placeholders
-      const em = document.getElementById('exprMath'); if (em && s.exprPlaceholderMath) em.setAttribute('placeholder', s.exprPlaceholderMath);
-      const et = document.getElementById('exprText'); if (et && s.exprPlaceholderText) et.setAttribute('placeholder', s.exprPlaceholderText);
-      // Approach point placeholders
-      const pm = document.getElementById('pointMath'); if (pm) pm.setAttribute('placeholder', (lang==='ar'? 'اكتب قيمة a مثل \\pi/4 أو 0' : 'Enter a like \\pi/4 or 0'));
-      const pt = document.getElementById('pointText'); if (pt) pt.setAttribute('placeholder', (lang==='ar'? 'أدخل قيمة a (مثل π/4 أو 0)' : 'Enter value a (like pi/4 or 0)'));
-      // Difficulty / training controls
-      const dBtns = document.querySelectorAll('#diffSeg .seg-btn'); if (dBtns && dBtns.length===3 && s.diff) { dBtns[0].textContent = s.diff.easy; dBtns[1].textContent = s.diff.med; dBtns[2].textContent = s.diff.hard; }
-      const newQB = document.getElementById('newQ'); if (newQB && s.newQ) newQB.textContent = s.newQ;
-      const hintB = document.getElementById('hintBtn'); if (hintB && s.hintBtn) hintB.textContent = s.hintBtn;
-      // Keypad labels
-      if (s.keypad) {
-        const bFrac = document.querySelector('#ansPad [data-ins="frac"]'); if (bFrac) bFrac.textContent = s.keypad.frac;
-        const bPow = document.querySelector('#ansPad [data-ins="pow"]'); if (bPow) bPow.textContent = s.keypad.pow;
-        const bSqrt = document.querySelector('#ansPad [data-ins="sqrt"]'); if (bSqrt) bSqrt.textContent = s.keypad.sqrt;
-      }
-    }
-    function sanitizeExpr(expr) {
-      // Allow only digits, x, sin cos tan, operators +-*/**(), spaces
-      const ok = /^[\s0-9x+\-*/().]*$/.test(expr.replace(/sin|cos|tan/g, ''));
-      if (!ok) return null;
-      // Replace power operator if using ^ with **
-      expr = expr.replace(/\^/g, '**');
-      // Replace trig to Math.*
-      expr = expr.replace(/sin\s*\(/g, 'Math.sin(')
-                 .replace(/cos\s*\(/g, 'Math.cos(')
-                 .replace(/tan\s*\(/g, 'Math.tan(');
-      return expr;
-    }
+# ==========================
+# Styling (Glassmorphism + Theme)
+# ==========================
+LIGHT_VARS = {
+    '--bg': '#f5f7ff',
+    '--text': '#0f172a',
+    '--muted': '#475569',
+    '--accent': '#6366f1',
+    '--glass-bg': 'rgba(255, 255, 255, 0.45)',
+    '--glass-border': 'rgba(255, 255, 255, 0.6)'
+}
+DARK_VARS = {
+    '--bg': '#0b1220',
+    '--text': '#e5e7eb',
+    '--muted': '#94a3b8',
+    '--accent': '#a78bfa',
+    '--glass-bg': 'rgba(17, 24, 39, 0.45)',
+    '--glass-border': 'rgba(148, 163, 184, 0.4)'
+}
 
-    // احصل على قيمة "التعبير" من الحقل النّصي أو الرياضي وحوّل LaTeX إلى نص إن لزم
-    function getExprInput(){
-      const em = document.getElementById('exprMath');
-      const et = document.getElementById('exprText');
-      let v = '';
-      try {
-        const mfVisible = em && em.style.display !== 'none';
-        if (mfVisible && em.getValue) v = String(em.getValue('latex')||'');
-        else v = String(et ? et.value||'' : '');
-      } catch { v = String(et ? et.value||'' : ''); }
-      v = String(v||'').trim();
-      if (/\\[A-Za-z]+/.test(v)) {
-        try { v = latexToJSExpr(v).replace(/Math\./g, ''); } catch {}
-      }
-      return v;
-    }
+CSS_BASE = """
+:root {{
+  {vars}
+}}
 
-    function evalAt(expr, xval) {
-      const safe = sanitizeExpr(expr);
-      if (!safe) throw new Error('invalid');
-      // Inject variable x safely
-      const js = `const x=${xval}; return (${safe});`;
-      // eslint-disable-next-line no-new-func
-      return Function(js)();
-    }
+html, body, [data-testid="stAppViewContainer"] {{
+  background: var(--bg) !important;
+  color: var(--text) !important;
+}}
 
-    function estimateLimit(expr, a) {
-      // Evaluate near selected point a and average robustly
-      const xs = [1e-4, 5e-5, -5e-5, 1e-5, -1e-5].map(d => a + d);
-      const vals = [];
-      for (const xv of xs) {
-        const v = evalAt(expr, xv);
-        if (!Number.isFinite(v)) throw new Error('nonfinite');
-        vals.push(v);
-      }
-      // median for robustness
-      vals.sort((a,b)=>a-b);
-      const mid = vals[Math.floor(vals.length/2)];
-      return mid;
-    }
+/* Direction will be injected dynamically */
 
-    function sanitizeAnswer(ans) {
-      // Only numeric expression: digits + operators + () + spaces
-      const ok = /^[\s0-9+\-*/().]*$/.test(ans);
-      if (!ok) return null;
-      const js = `return (${ans});`;
-      // eslint-disable-next-line no-new-func
-      return Function(js)();
-    }
+.glass-card {{
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  background-color: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: 18px;
+  padding: 20px 24px;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+}}
 
-    function randomReactionWithIndex() {
-      if (reactionList.length === 0) {
-        const idx = 1 + Math.floor(Math.random()*11);
-        return { src: `reactions/reaction${idx}.jpg`, idx };
-      }
-      const pick = reactionList[Math.floor(Math.random()*reactionList.length)];
-      const m = String(pick).match(/(\d+)/);
-      const idx = m ? parseInt(m[1], 10) : 1;
-      return { src: `reactions/${pick}`, idx };
-    }
+.btn-accent button {{
+  background: var(--accent) !important;
+  color: white !important;
+  border-radius: 10px !important;
+}}
 
-    function showSuccess(value) {
-      const r = document.getElementById('result');
-      const s = STR[lang];
-      r.classList.remove('fail-card'); r.classList.add('success-card');
-      r.innerHTML = `<div class='reaction pop-in'>👏😄🎉</div><p class='fade-in'>${s.success}</p><p class='muted fade-in'>${(lang==='ar'?'القيمة ~ ':'Value ~ ')} ${value.toFixed(6)}</p><br/><button id='copyBtn' class='btn-outline'>${s.copy}</button>`;
-      if (!playApplauseHQ()) smoothPlay('applause', 600);
-      lastValue = value;
-      attachCopy();
-      emojiBurst();
-    }
+h1, h2, h3, h4, h5, h6 {{
+  color: var(--text) !important;
+}}
 
-    function orderedReactionWithIndex(){
-      let failCount = 0;
-      try { failCount = attempts.filter(x=>x===0).length; } catch{}
-      const maxIdx = 11; // عدد الرياكشنات المتوفر افتراضياً
-      // تدوير: 1→2→…→11 ثم العودة إلى 1
-      const base = failCount >= 1 ? failCount : 1;
-      let idx = ((base - 1) % maxIdx) + 1;
-      if (!Number.isFinite(idx) || idx < 1) idx = 1;
-      return { src: `reactions/reaction${idx}.jpg`, idx };
-    }
-    function showFailure(value) {
-      const r = document.getElementById('result');
-      const s = STR[lang];
-      const rr = orderedReactionWithIndex();
-      const msgMap = (reactionMessages && reactionMessages[lang]) ? reactionMessages[lang] : REACTION_MSG_DEFAULT[lang];
-      const phrase = (msgMap && msgMap[String(rr.idx)]) ? msgMap[String(rr.idx)] : s.fail;
-      r.classList.remove('success-card'); r.classList.add('fail-card');
-      r.innerHTML = `<div class='reaction pop-in'>😕</div><h3 class='fade-in headline'>${phrase}</h3><p class='muted fade-in'>${(lang==='ar'?'القيمة المتوقعة ~ ':'Expected ~ ')} ${value.toFixed(6)}</p><br/><img class='reaction-img' src='${rr.src}' loading='lazy' alt='reaction' /><br/><button id='copyBtn' class='btn-outline'>${s.copy}</button>`;
-      lastValue = value;
-      attachCopy();
-    }
+.muted {{ color: var(--muted); }}
+.reaction {{ font-size: 2.2rem; line-height: 1; }}
+.small {{ font-size: 0.95rem; }}
+.center {{ text-align: center; }}
+"""
 
-    function sinSeriesLatex(n){
-      const terms = [];
-      // odd terms: 1,3,5,7 up to n
-      for(let k=1;k<=n;k+=2){
-        const sign = ((k-1)/2)%2===0 ? '' : '-';
-        const fact = `\\frac{x^{${k}}}{${k}!}`;
-        terms.push(`${sign}${k===1? 'x': fact}`);
-      }
-      return `\\(\\sin(x) = ${terms.join(' + ').replace(/\+ -/g,' - ')} + \\cdots\\)`;
-    }
-    function cosSeriesLatex(n){
-      const terms=[];
-      for(let j=0;j<=n;j+=2){
-        const k=j; // power
-        const sign = (k/2)%2===0 ? '' : '-';
-        const term = k===0? '1' : `\\frac{x^{${k}}}{${k}!}`;
-        terms.push(`${sign}${term}`);
-      }
-      return `\\(\\cos(x) = ${terms.join(' + ').replace(/\+ -/g,' - ')} + \\cdots\\)`;
-    }
-    function tanSeriesLatex(n){
-      // coefficients up to x^11
-      const coeff = {1:'',3:'\\frac{1}{3}',5:'\\frac{2}{15}',7:'\\frac{17}{315}',9:'\\frac{62}{2835}',11:'\\frac{1382}{155925}'};
-      const powers = [1,3,5,7,9].filter(p=>p<=n);
-      const p2 = n>=11? [...powers,11]: powers;
-      const terms = p2.map(p=>`${p===1? 'x': coeff[p]+'x^{'+p+'}'}`);
-      return `\\(\\tan(x) = ${terms.join(' + ')} + \\cdots\\)`;
-    }
-    // تحويل حاصل قسمة أعلى المستوى إلى \dfrac مع تنسيق داخلي واضح
-    function toLatex(s){
-      if (!s) return '';
-      const clean = String(s).replace(/\s+/g, '');
-      // ابحث عن / على العمق 0 (خارج الأقواس) لتحويله إلى \dfrac
-      let idx = -1, depth = 0;
-      for (let i=0;i<clean.length;i++){
-        const ch = clean[i];
-        if (ch === '(') depth++;
-        else if (ch === ')') depth = Math.max(0, depth-1);
-        else if (ch === '/' && depth === 0){ idx = i; break; }
-      }
-      const convTerm = (term)=>{
-        if (!term) return '';
-        let t = term;
-        // دوال مثلثية
-        t = t.replace(/sin\(/g, '\\sin(')
-             .replace(/cos\(/g, '\\cos(')
-             .replace(/tan\(/g, '\\tan(');
-        // الأس
-        t = t.replace(/\*\*/g, '^');
-        t = t.replace(/\^(\d+)/g, '^{ $1 }');
-        // ضرب ضمني: أزل *
-        t = t.replace(/\*/g, ' ');
-        // أقواس زائدة
-        t = t.replace(/\(\)/g, '');
-        return t;
-      };
-      if (idx !== -1){
-        let num = clean.slice(0, idx);
-        let den = clean.slice(idx+1);
-        // أزل أقواس خارجية إن وجدت
-        if (num.startsWith('(') && num.endsWith(')')) num = num.slice(1, -1);
-        if (den.startsWith('(') && den.endsWith(')')) den = den.slice(1, -1);
-        const N = convTerm(num);
-        const D = convTerm(den);
-        return `\\dfrac{${N}}{${D}}`;
-      }
-      return convTerm(clean);
-    }
-    function showSteps(expr) {
-      const s = STR[lang];
-      const r = document.getElementById('result');
-      let html = '';
-      html += `<p><strong>${(lang==='ar'?'المعادلة:':'Expression:')}</strong> ${expr}</p>`;
-      html += `<p><strong>${(lang==='ar'?'توسيعات ماكلورين:':'Maclaurin expansions:')}</strong></p>`;
-      const n = parseInt(document.getElementById('order').value);
-      const expansions = [sinSeriesLatex(n), cosSeriesLatex(n), tanSeriesLatex(n)];
-      html += `<div>${expansions.map(e=>`<div>${e}</div>`).join('')}</div>`;
-      try {
-        const a = getApproachValue();
-        const aText = getApproachLabel();
-        const L = estimateLimit(expr, a);
-        html += `<p><strong>${STR[lang].limitAs} ${aText}:</strong> ~ ${L.toFixed(6)}</p><br/><button id='copyBtn' class='btn-outline'>${STR[lang].copy}</button>`;
-        lastValue = L; attachCopy();
-      } catch(e) {
-        html += `<p>${s.invalid}</p>`;
-      }
-      r.innerHTML = html;
-      if (window.MathJax && MathJax.typesetPromise) MathJax.typesetPromise();
-    }
+# ==========================
+# Localization
+# ==========================
+@dataclass
+class Translator:
+    lang: str = 'EN'  # 'EN' or 'AR'
 
-    document.getElementById('check').addEventListener('click', () => {
-      const expr = getExprInput();
-      const ansMf = document.getElementById('ansMath'); const ansTx = document.getElementById('ansText');
-      let ans = '';
-      try {
-        const mfVisible = ansMf && ansMf.style.display !== 'none';
-        if (mfVisible && ansMf.getValue) ans = String(ansMf.getValue('latex')||'').trim();
-        else ans = String(ansTx ? ansTx.value||'' : '').trim();
-      } catch { ans = String(ansTx ? ansTx.value||'' : '').trim(); }
-      const res = document.getElementById('result');
-      if (mode === 'solve') {
-        // hide answer field in solve mode
-        document.getElementById('ansBlock').style.display = 'none';
-        try {
-          const a = getApproachValue();
-          const aText = getApproachLabel();
-          const L = estimateLimit(expr, a);
-          res.innerHTML = `<p class='fade-in'><strong>${STR[lang].limitAs} ${aText}:</strong> ~ ${L.toFixed(6)}</p>`;
-        } catch(e) {
-          res.innerHTML = `<div class='reaction pop-in'>😕</div><p class='fade-in'>${STR[lang].invalid}</p>`;
+    def t(self, key: str) -> str:
+        return STRINGS[self.lang].get(key, key)
+
+    @property
+    def rtl(self) -> bool:
+        return self.lang == 'AR'
+
+STRINGS: Dict[str, Dict[str, str]] = {
+    'EN': {
+        'title': 'Trigonometric Limits via Maclaurin',
+        'desc': 'Explore limits as x → a for sin, cos, tan using series.',
+        'mode': 'Mode',
+        'quick': 'Quick Solve',
+        'steps': 'Step-by-Step',
+        'train': 'Training Mode',
+        'expr': 'Expression (only sin, cos, tan with x)',
+        'order': 'Series Order (accuracy)',
+        'solve': 'Solve',
+        'limit_result': 'Limit Result',
+        'series_expansions': 'Maclaurin Expansions',
+        'simplified_series': 'Simplified Series (after substitution)',
+        'final_limit': 'Final Limit as x → a',
+        'approach_point': 'Approach point',
+        'invalid': 'Invalid input. Use only sin, cos, tan and variable x.',
+        'theme': 'Theme',
+        'theme_light': 'Light',
+        'theme_dark': 'Dark',
+        'lang': 'Language',
+        'answer': 'Your Answer',
+        'check': 'Check Answer',
+        'success': 'Great job! Correct answer 🎉',
+        'fail': 'Not quite—try again!',
+        'examples': 'Examples: sin(x)/x, tan(x)/x, (1-cos(x))/x**2',
+    },
+    'AR': {
+        'title': 'نهايات المثلثات بسلسلة ماكلوران',
+        'desc': 'اكتشف النهايات عندما x → a للدوال sin وcos وtan باستخدام السلاسل.',
+        'mode': 'الوضع',
+        'quick': 'حل سريع',
+        'steps': 'خطوة بخطوة',
+        'train': 'وضع التدريب',
+        'expr': 'التعبير (فقط sin وcos وtan مع المتغير x)',
+        'order': 'رتبة السلسلة (الدقة)',
+        'solve': 'احسب',
+        'limit_result': 'نتيجة النهاية',
+        'series_expansions': 'توسيعات ماكلوران',
+        'simplified_series': 'سلسلة مبسطة (بعد الاستبدال)',
+        'final_limit': 'النهاية عندما x → a',
+        'approach_point': 'نقطة الاقتراب',
+        'invalid': 'إدخال غير صالح. استخدم فقط sin وcos وtan والمتغير x.',
+        'theme': 'المظهر',
+        'theme_light': 'فاتح',
+        'theme_dark': 'داكن',
+        'lang': 'اللغة',
+        'answer': 'إجابتك',
+        'check': 'تحقق من الإجابة',
+        'success': 'عمل رائع! إجابة صحيحة 🎉',
+        'fail': 'ليست صحيحة—حاول مرة أخرى!',
+        'examples': 'أمثلة: sin(x)/x ، tan(x)/x ، (1-cos(x))/x**2',
+    },
+}
+
+# ==========================
+# Math Engine (OOP)
+# ==========================
+class MaclaurinEngine:
+    def __init__(self):
+        self.x = sp.symbols('x')
+        self.allowed_locals = {'x': self.x, 'sin': sp.sin, 'cos': sp.cos, 'tan': sp.tan}
+
+    def parse(self, expr_str: str) -> Optional[sp.Expr]:
+        try:
+            expr = sp.sympify(expr_str, locals=self.allowed_locals)
+        except Exception:
+            return None
+        # Validate only x symbol and allowed functions
+        # Symbols other than x
+        symbols = {s for s in expr.free_symbols if s != self.x}
+        if symbols:
+            return None
+        # Only allowed functions
+        funcs = expr.atoms(sp.Function)
+        for f in funcs:
+            if f.func not in {sp.sin, sp.cos, sp.tan}:
+                return None
+        return expr
+
+    def quick_limit(self, expr_str: str, a: sp.Expr = sp.Integer(0)) -> Tuple[bool, Optional[sp.Expr]]:
+        expr = self.parse(expr_str)
+        if expr is None:
+            return False, None
+        try:
+            L = sp.limit(expr, self.x, a)
+            return True, sp.simplify(L)
+        except Exception:
+            return False, None
+
+    def series_steps(self, expr_str: str, order: int = 7, a: sp.Expr = sp.Integer(0)) -> Tuple[bool, Dict[str, List[str]]]:
+        expr = self.parse(expr_str)
+        if expr is None:
+            return False, {}
+        x = self.x
+        steps: Dict[str, List[str]] = {
+            'expansions': [],
+            'simplified': [],
+            'final': []
         }
-      } else if (mode === 'steps') {
-        document.getElementById('ansBlock').style.display = 'none';
-        showSteps(expr);
-      } else {
-        document.getElementById('ansBlock').style.display = '';
-        try {
-          const a = getApproachValue();
-          const L = estimateLimit(expr, a);
-          const user = evalLatexNumeric(ans);
-          if (typeof user !== 'number' || !Number.isFinite(user)) throw new Error('bad answer');
-          const ok = Math.abs(L - user) < 1e-4;
-          total += 1; if (ok){ correct += 1; streak += 1; score += 1; attempts.push(1); } else { streak = 0; attempts.push(0); }
-          saveStats(); updateHUD();
-          if (ok) { showSuccess(L); } else { showFailure(L); }
-        } catch (e) {
-          res.innerHTML = `<div class='reaction'>😕</div><p>${STR[lang].invalid}</p>`;
+        # Individual expansions for functions present
+        present = {
+            'sin': any(isinstance(node, sp.sin) for node in sp.preorder_traversal(expr)),
+            'cos': any(isinstance(node, sp.cos) for node in sp.preorder_traversal(expr)),
+            'tan': any(isinstance(node, sp.tan) for node in sp.preorder_traversal(expr)),
         }
-      }
-    });
+        try:
+            if present['sin']:
+                s = sp.series(sp.sin(x), x, a, order).removeO()
+                steps['expansions'].append(sp.latex(sp.Eq(sp.sin(x), s)))
+            if present['cos']:
+                c = sp.series(sp.cos(x), x, a, order).removeO()
+                steps['expansions'].append(sp.latex(sp.Eq(sp.cos(x), c)))
+            if present['tan']:
+                t = sp.series(sp.tan(x), x, a, order).removeO()
+                steps['expansions'].append(sp.latex(sp.Eq(sp.tan(x), t)))
 
-    document.getElementById('themeBtn').addEventListener('click', () => {
-      theme = theme === 'light' ? 'dark' : 'light';
-      const vars = theme === 'light' ? LIGHT : DARK;
-      for (const k in vars) document.documentElement.style.setProperty(k, vars[k]);
-      document.getElementById('themeBtn').textContent = theme === 'light' ? '🌙' : '☀️';
-      try { localStorage.setItem('theme', theme);} catch {}
-      populateWatermark();
-    });
-    document.getElementById('langBtn').addEventListener('click', () => {
-      lang = lang === 'ar' ? 'en' : 'ar';
-      try { localStorage.setItem('lang', lang);} catch {}
-      const cont = document.querySelector('.container'); if (cont) { cont.classList.remove('fade-in'); void cont.offsetWidth; cont.classList.add('fade-in'); }
-      applyLang();
-    });
-    document.getElementById('guideBtn').addEventListener('click', ()=>{
-      const g = document.getElementById('guide');
-      g.style.display = (g.style.display==='none')? '' : 'none';
-    });
+            series_expr = sp.series(expr, x, a, order).removeO()
+            steps['simplified'].append(sp.latex(sp.Eq(sp.Symbol('S(x)'), sp.simplify(series_expr))))
+            L = sp.limit(series_expr, x, a)
+            steps['final'].append(sp.latex(sp.Eq(sp.Symbol('\\lim_{x\\to a}'), L)))
+            return True, steps
+        except Exception:
+            return False, {}
 
-    // segmented control
-    document.getElementById('modeSeg').addEventListener('click', (e) => {
-      const btn = e.target.closest('.seg-btn');
-      if (!btn) return;
-      mode = btn.dataset.mode;
-      document.querySelectorAll('#modeSeg .seg-btn').forEach(b=>b.classList.toggle('active', b === btn));
-      // toggle order slider visibility
-      document.getElementById('orderRow').style.display = (mode==='steps')? '': 'none';
-      document.getElementById('ansBlock').style.display = (mode==='game')? '': 'none';
-      document.getElementById('gameToolbar').style.display = (mode==='game')? '' : 'none';
-      document.getElementById('hint').style.display = 'none';
-      document.getElementById('hud').style.display = (mode==='game')? '' : 'none';
-      // ضع خانة الإجابة تحت زر التلميح في وضع التدريب
-      const ansCont = document.getElementById('ansContainer');
-      if (mode==='game') {
-        updateHUD(); try { newQuestion(); } catch(_){}
-        try {
-          if (ansCont && document.getElementById('ansBlock')) {
-            ansCont.style.display = '';
-            ansCont.appendChild(document.getElementById('ansBlock'));
-          }
-        } catch{}
-        // show the tip on first entry to game mode
-        try { const seen = localStorage.getItem('menuTipSeen'); if (!seen) { showMenuTip(); setTimeout(()=>hideMenuTip(true), 4500); } } catch{}
-      } else {
-        if (ansCont) ansCont.style.display = 'none';
-      }
-    });
+# ==========================
+# UI Controller (OOP)
+# ==========================
+class App:
+    def __init__(self):
+        if 'lang' not in st.session_state:
+            st.session_state.lang = 'EN'
+        if 'theme' not in st.session_state:
+            st.session_state.theme = 'Light'
+        self.tr = Translator(st.session_state.lang)
+        self.engine = MaclaurinEngine()
 
-    // init
-    (function init(){
-      // theme/lang from storage
-      try { theme = localStorage.getItem('theme') || theme; } catch {}
-      try { lang = localStorage.getItem('lang') || lang; } catch {}
-      const vars = theme==='light'? LIGHT : DARK; for (const k in vars) document.documentElement.style.setProperty(k, vars[k]);
-      document.getElementById('themeBtn').textContent = theme === 'light' ? '🌙' : '☀️';
-      document.getElementById('guide').textContent = STR[lang].guide;
-      // ensure math field is cleanly initialized
-      try { const mf = document.getElementById('ansMath'); if (mf && mf.setValue) mf.setValue('', {suppressChangeNotifications: true}); } catch {}
-      // default answer visibility
-      document.getElementById('ansBlock').style.display = 'none';
-      document.getElementById('orderRow').style.display = 'none';
-      document.getElementById('hud').style.display = 'none';
-      document.getElementById('gameToolbar').style.display = 'none';
-      document.getElementById('hint').style.display = 'none';
-      const ansCont = document.getElementById('ansContainer'); if (ansCont) ansCont.style.display = 'none';
-      // order slider change
-      document.getElementById('order').addEventListener('input', ()=>{
-        const n = parseInt(document.getElementById('order').value);
-        const s = STR[lang];
-        document.getElementById('orderVal').textContent = s.orderVal(n);
-      });
-      // apply language texts now
-      applyLang();
-      // bind approach HUD updates
-      try { const pm = document.getElementById('pointMath'); if (pm) pm.addEventListener('input', updateApproachHUD); } catch{}
-      try { const pt = document.getElementById('pointText'); if (pt) pt.addEventListener('input', updateApproachHUD); } catch{}
-      updateApproachHUD();
-      // mobile keyboard UX hooks
-      setupKeyboardUX();
-      setupExprUX();
-      // اربط حاوية الكيبورد بالعنصر الأب المحدد
-      try { if (window.mathVirtualKeyboard) { 
-        window.mathVirtualKeyboard.container = document.getElementById('math-field-container');
-        // تفعيل تخطيط كامل بالمعاملات
-        window.mathVirtualKeyboard.layouts = 'full';
-        // حرّك زر ✕ ليكون فوق الكيبورد ويتابع ارتفاعه
-        try {
-          window.mathVirtualKeyboard.addEventListener('geometrychange', function(){
-            const btn = document.getElementById('kbClose');
-            const rect = window.mathVirtualKeyboard.boundingRect || {};
-            if (btn) {
-              const open = rect && rect.height > 0;
-              btn.style.display = open ? 'block' : 'none';
-              if (open) btn.style.bottom = `calc(${Math.max(0, rect.height)}px + env(safe-area-inset-bottom) + 10px)`;
-            }
-          });
-        } catch{}
-      } } catch {}
-      // show menu tip once near the answer menu
-      try {
-        const seen = localStorage.getItem('menuTipSeen');
-        if (!seen) { showMenuTip(); setTimeout(()=>hideMenuTip(true), 4500); }
-      } catch {}
-      // load reactions manifest + optional messages
-      loadReactionsManifest();
-      loadReactionMessages();
-      updateHUD();
-      // رسم النصوص المائية في الخلفية
-      populateWatermark();
-      window.addEventListener('resize', debounce(populateWatermark, 200));
-      // مفاتيح اختصارات: Enter للتحقق، Ctrl+N لسؤال جديد
-      window.addEventListener('keydown', (e)=>{
-        if (e.key === 'Enter') document.getElementById('check').click();
-        if ((e.ctrlKey || e.metaKey) && (e.key==='n' || e.key==='N')) { e.preventDefault(); newQuestion(); }
-      });
-    })();
-    // --- Mobile keyboard UX: dismiss button, padding, outside click ---
-    function setupKeyboardUX(){
-      const cont = document.querySelector('.container');
-      const mf = document.getElementById('ansMath'); const dismiss = document.getElementById('kbDismiss'); const tx = document.getElementById('ansText');
-      if (!cont || !mf) return;
-      let kbOpen = false;
-      let kbEl = null;
-      let suppressOpenUntil = 0; // لمنع إعادة الفتح مباشرة بعد الإغلاق
-      function openKB(){
-        kbOpen = true;
-        // إظهار زر الإغلاق فقط وترك MathLive يضبط مكان الكيبورد طبيعيًا
-        try {
-          const kbClose = document.getElementById('kbClose');
-          if (kbClose) kbClose.style.display='block';
-          if (dismiss) dismiss.style.display = 'block';
-        } catch{}
-      }
-      function closeKB(){
-        kbOpen = false;
-        suppressOpenUntil = Date.now() + 600;
-        try { if (dismiss) dismiss.style.display = 'none'; } catch{}
-        try { const kbClose = document.getElementById('kbClose'); if (kbClose) kbClose.style.display='none'; } catch{}
-        try{
-          if (mf.hideVirtualKeyboard) mf.hideVirtualKeyboard(); else if (mf.executeCommand) mf.executeCommand('hideVirtualKeyboard');
-          if (window.mathVirtualKeyboard) window.mathVirtualKeyboard.visible = false;
-        }catch{}
-      }
-      // اجعل الدوال متاحة للمفاتيح المصغّرة أيضًا
-      try { window.openMathKB = openKB; window.closeMathKB = closeKB; } catch{}
-      // أغلق عند فقدان التركيز.
-      mf.addEventListener('blur', closeKB);
-      // افتح الكيبورد مباشرة عند تركيز math-field (عندما يكون ظاهرًا)
-      mf.addEventListener('focus', function(){
-        try {
-          if (Date.now() < suppressOpenUntil) return;
-          kbTarget = 'ans';
-          openKB();
-          if (window.mathVirtualKeyboard) window.mathVirtualKeyboard.visible = true;
-          if (mf.showVirtualKeyboard) mf.showVirtualKeyboard();
-          else if (mf.executeCommand) mf.executeCommand('showVirtualKeyboard');
-        } catch{}
-      });
-      // تحويل تلقائي من حقل النص إلى وضع الرياضيات عند الضغط/اللمس/التركيز
-      if (tx) {
-        const switchToMath = function(e){
-          try { if (e && e.preventDefault) e.preventDefault(); } catch{}
-          try { tx.setAttribute('readonly','readonly'); } catch{}
-          try {
-            tx.style.display = 'none';
-            mf.style.display = '';
-            const v = String(tx.value||'');
-            if (mf.setValue) mf.setValue(v, {suppressChangeNotifications:true});
-            if (mf && mf.focus) mf.focus({ preventScroll: true });
-            kbTarget = 'ans';
-            openKB();
-            if (window.mathVirtualKeyboard) window.mathVirtualKeyboard.visible = true;
-            if (mf.showVirtualKeyboard) mf.showVirtualKeyboard();
-            else if (mf.executeCommand) mf.executeCommand('showVirtualKeyboard');
-          } catch{}
-        };
-        tx.addEventListener('pointerdown', switchToMath);
-        tx.addEventListener('touchstart', switchToMath, { passive: false });
-        tx.addEventListener('click', switchToMath);
-        tx.addEventListener('focus', switchToMath);
-      }
-      // فتح الكيبورد الرياضي عند الضغط على زر المنيو
-      const menuBtn = document.getElementById('ansMenuBtn');
-      if (menuBtn) {
-        menuBtn.addEventListener('click', function(){
-          try {
-            if (tx) tx.style.display = 'none';
-            mf.style.display = '';
-            const v = tx ? String(tx.value||'') : '';
-            if (mf.setValue) mf.setValue(v, {suppressChangeNotifications:true});
-            if (mf && mf.focus) mf.focus({ preventScroll: true });
-          } catch{}
-          kbTarget = 'ans';
-          openKB();
-          try {
-            if (window.mathVirtualKeyboard) { window.mathVirtualKeyboard.visible = true; }
-            if (mf.showVirtualKeyboard) mf.showVirtualKeyboard();
-            else if (mf.executeCommand) mf.executeCommand('showVirtualKeyboard');
-          } catch{}
-          // اترك التوزيع الطبيعي دون أي قياسات أو حواشٍ إضافية
-        });
-      }
-      // Dismiss button (removed)
-      if (dismiss) {
-        dismiss.addEventListener('click', function(){
-          try { const v = mf && mf.getValue ? String(mf.getValue('latex')||'') : ''; if (tx) tx.value = v; } catch{}
-          mf.style.display = 'none'; if (tx) tx.style.display='';
-          try{ mf.blur(); }catch{}
-          closeKB();
-        });
-      }
-      const kbCloseBtn = document.getElementById('kbClose');
-      if (kbCloseBtn) {
-        const doClose = function(e){
-          try { if (e) { e.preventDefault(); e.stopPropagation(); } } catch{}
-          try { document.activeElement.blur(); } catch{}
-          try {
-            const amf = document.getElementById('ansMath'); const atx = document.getElementById('ansText');
-            const emf = document.getElementById('exprMath'); const etx = document.getElementById('exprText');
-            const activeMf = kbTarget === 'expr' ? emf : amf;
-            const activeTx = kbTarget === 'expr' ? etx : atx;
-            const v = activeMf && activeMf.getValue ? String(activeMf.getValue('latex')||'') : '';
-            if (activeTx) activeTx.value = v;
-            if (activeMf) activeMf.style.display = 'none'; if (activeTx) activeTx.style.display='';
-          } catch{}
-          closeKB();
-        };
-        kbCloseBtn.addEventListener('click', doClose);
-        kbCloseBtn.addEventListener('pointerdown', doClose);
-        kbCloseBtn.addEventListener('touchstart', doClose, { passive: false });
-      }
-      // Outside click to blur (bubble phase + robust shadow DOM path check)
-      document.addEventListener('click', function(e){
-        if (!(window.mathVirtualKeyboard && window.mathVirtualKeyboard.visible)) return;
-        const path = (typeof e.composedPath === 'function') ? e.composedPath() : [];
-        const inPath = (selector) => path.some(n => n && n.nodeType === 1 && (n.matches?.(selector) || n.closest?.(selector)));
-        const withinField = inPath('#ansMath') || inPath('#exprMath');
-        const withinKB = inPath('.ML__keyboard');
-        const withinPad = inPath('#ansPad');
-        const withinMenu = inPath('#ansMenu');
-        const withinClose = inPath('#kbClose');
-        if (!withinField && !withinKB && !withinPad && !withinMenu && !withinClose) {
-          try {
-            const amf = document.getElementById('ansMath'); const atx = document.getElementById('ansText');
-            const emf = document.getElementById('exprMath'); const etx = document.getElementById('exprText');
-            const activeMf = kbTarget === 'expr' ? emf : amf;
-            const activeTx = kbTarget === 'expr' ? etx : atx;
-            const v = activeMf && activeMf.getValue ? String(activeMf.getValue('latex')||'') : '';
-            if (activeTx) activeTx.value = v;
-            if (activeMf) activeMf.style.display = 'none'; if (activeTx) activeTx.style.display='';
-            try{ activeMf.blur(); }catch{}
-          } catch{}
-          closeKB();
-        }
-      });
-      // لا حاجة لأي قياسات/مراقبات: نعتمد على تموضع MathLive الطبيعي
-    }
+    def inject_css(self):
+        vars_map = LIGHT_VARS if st.session_state.theme == 'Light' else DARK_VARS
+        vars_str = '\n  '.join(f"{k}: {v};" for k, v in vars_map.items())
+        css = CSS_BASE.format(vars=vars_str)
+        # Direction
+        dir_css = f"html, body, [data-testid='stAppViewContainer'] {{ direction: {'rtl' if self.tr.rtl else 'ltr'}; }}"
+        st.markdown(f"<style>{css}\n{dir_css}</style>", unsafe_allow_html=True)
 
-    // تمكين نفس تجربة الكيبورد لحقل السؤال (التعبير)
-    function setupExprUX(){
-      const em = document.getElementById('exprMath');
-      const et = document.getElementById('exprText');
-      if (!em || !et) return;
-      let suppressOpenUntil = 0;
-      function openKB(){
-        try { const kbClose = document.getElementById('kbClose'); if (kbClose) kbClose.style.display='block'; } catch{}
-      }
-      function closeKB(){
-        suppressOpenUntil = Date.now() + 600;
-        try { const kbClose = document.getElementById('kbClose'); if (kbClose) kbClose.style.display='none'; } catch{}
-        try{
-          if (em.hideVirtualKeyboard) em.hideVirtualKeyboard(); else if (em.executeCommand) em.executeCommand('hideVirtualKeyboard');
-          if (window.mathVirtualKeyboard) window.mathVirtualKeyboard.visible = false;
-        }catch{}
-      }
-      em.addEventListener('blur', closeKB);
-      em.addEventListener('focus', function(){
-        try {
-          if (Date.now() < suppressOpenUntil) return;
-          kbTarget = 'expr';
-          openKB();
-          if (window.mathVirtualKeyboard) window.mathVirtualKeyboard.visible = true;
-          if (em.showVirtualKeyboard) em.showVirtualKeyboard(); else if (em.executeCommand) em.executeCommand('showVirtualKeyboard');
-        } catch{}
-      });
-      const switchToMath = function(e){
-        try { if (e && e.preventDefault) e.preventDefault(); } catch{}
-        try { et.setAttribute('readonly','readonly'); } catch{}
-        try {
-          et.style.display = 'none';
-          em.style.display = '';
-          const v = String(et.value||'');
-          if (em.setValue) em.setValue(v, {suppressChangeNotifications:true});
-          if (em && em.focus) em.focus({ preventScroll: true });
-          kbTarget = 'expr';
-          openKB();
-          if (window.mathVirtualKeyboard) window.mathVirtualKeyboard.visible = true;
-          if (em.showVirtualKeyboard) em.showVirtualKeyboard(); else if (em.executeCommand) em.executeCommand('showVirtualKeyboard');
-        } catch{}
-      };
-      et.addEventListener('pointerdown', switchToMath);
-      et.addEventListener('touchstart', switchToMath, { passive: false });
-      et.addEventListener('click', switchToMath);
-      et.addEventListener('focus', switchToMath);
-    }
+    def sidebar(self):
+        st.sidebar.header("🧭")
+        # Language
+        lang_label = self.tr.t('lang')
+        lang = st.sidebar.radio(lang_label, options=['EN', 'AR'], index=0 if st.session_state.lang=='EN' else 1, key='lang_radio')
+        if lang != st.session_state.lang:
+            st.session_state.lang = lang
+            self.tr = Translator(lang)
+        # Theme
+        theme_label = self.tr.t('theme')
+        theme = st.sidebar.radio(theme_label, options=['Light', 'Dark'], index=0 if st.session_state.theme=='Light' else 1, key='theme_radio')
+        if theme != st.session_state.theme:
+            st.session_state.theme = theme
+        st.sidebar.markdown(f"<div class='small muted'>{self.tr.t('examples')}</div>", unsafe_allow_html=True)
 
-    // Smooth audio play (fade-in)
-    function smoothPlay(id, fadeMs=600){
-      const a = document.getElementById(id);
-      try{
-        a.pause(); a.currentTime = 0; a.volume = 0; a.play();
-        const steps = 30; const inc = 1/steps; let i=0;
-        const t = setInterval(()=>{ i++; a.volume = Math.min(1, a.volume + inc); if(i>=steps){ clearInterval(t);} }, Math.max(20, fadeMs/steps));
-      }catch(e){ a.play(); }
-    }
-    function attachCopy(){
-      const btn = document.getElementById('copyBtn');
-      if (!btn) return;
-      btn.onclick = async ()=>{
-        try {
-          await navigator.clipboard.writeText(String(lastValue));
-          btn.textContent = (lang==='ar'? '✅ تم النسخ' : '✅ Copied');
-          setTimeout(()=>{ btn.textContent = STR[lang].copy; }, 1200);
-        } catch {}
-      };
-    }
-    // Score & progress
-    score = 0; attempts = [];
-    try { score = parseInt(localStorage.getItem('score')||'0')||0; attempts = JSON.parse(localStorage.getItem('attempts')||'[]')||[]; } catch {}
-    streak = 0; correct = 0; total = 0;
-    try { streak = parseInt(localStorage.getItem('streak')||'0')||0; correct = parseInt(localStorage.getItem('correct')||'0')||0; total = parseInt(localStorage.getItem('total')||'0')||0; } catch {}
-    try { if (typeof updateHUD === 'function') updateHUD(); } catch {}
-    function saveStats(){
-      try{
-        localStorage.setItem('score', String(score));
-        localStorage.setItem('attempts', JSON.stringify(attempts.slice(-10)));
-        localStorage.setItem('streak', String(streak));
-        localStorage.setItem('correct', String(correct));
-        localStorage.setItem('total', String(total));
-      } catch{}
-    }
-    function updateHUD(){
-      const s = STR[lang];
-      const lbl = document.getElementById('scoreLabel'); if (lbl) lbl.textContent = s.points(score);
-      const recent = attempts.slice(-10); const okCount = recent.filter(x=>x===1).length; const pct = recent.length? Math.round((okCount/recent.length)*100) : 0;
-      const pf = document.getElementById('progressFill'); if (pf) pf.style.width = pct+'%';
-      const st = document.getElementById('streakLabel'); if (st) st.textContent = (lang==='ar'? `سلسلة صحيحة: ${streak}🔥` : `Streak: ${streak}🔥`);
-      const ac = document.getElementById('accLabel'); if (ac) {
-        const acc = total? Math.round((correct/total)*100) : 0;
-        ac.textContent = (lang==='ar'? `الدقة: ${acc}%` : `Accuracy: ${acc}%`);
-      }
-    }
-    document.getElementById('resetScore').addEventListener('click', ()=>{ score=0; attempts=[]; streak=0; correct=0; total=0; saveStats(); updateHUD(); });
-    function emojiBurst(){
-      const overlay = document.getElementById('overlay');
-      const emojis = ['🎉','✨','👏','🎊','🥳'];
-      for(let i=0;i<16;i++){
-        const span = document.createElement('span');
-        span.className = 'confetti';
-        span.style.left = (20 + Math.random()*80)+'%';
-        span.style.top = '8px';
-        span.textContent = emojis[Math.floor(Math.random()*emojis.length)];
-        overlay.appendChild(span);
-        setTimeout(()=>{ span.remove(); }, 1000);
-      }
-    }
-    // توليد النصوص المائية sin/cos/tan بشكل موزع
-    function populateWatermark(){
-      const cont = document.getElementById('wm'); if (!cont) return;
-      cont.innerHTML = '';
-      const words = ['sin','cos','tan'];
-      const W = window.innerWidth, H = window.innerHeight;
-      const count = Math.min(28, Math.max(10, Math.round((W*H)/45000)));
-      for(let i=0;i<count;i++){
-        const s = document.createElement('span');
-        s.textContent = words[i % words.length];
-        const left = Math.random()*90; const top = Math.random()*90;
-        const rot = (Math.random()*30 - 15).toFixed(1);
-        s.style.left = left+'%'; s.style.top = top+'%'; s.style.transform = `rotate(${rot}deg)`;
-        cont.appendChild(s);
-      }
-    }
-    function debounce(fn, ms){ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn.apply(null,a), ms); } }
-    async function loadReactionsManifest(){
-      try {
-        const res = await fetch('reactions/manifest.json', { cache: 'no-store' });
-        if (!res.ok) throw new Error('no manifest');
-        const data = await res.json();
-        if (Array.isArray(data) && data.length) reactionList = data.filter(n=>/\.jpg$/i.test(n));
-      } catch(e) {
-        // fallback is handled in randomReaction()
-      }
-    }
-    async function loadReactionMessages(){
-      try {
-        const res = await fetch('reactions/messages.json', { cache: 'no-store' });
-        if (res.ok) {
-          const data = await res.json();
-          if (data && (data.ar || data.en)) reactionMessages = data;
-        }
-      } catch(e) { /* optional file */ }
-    }
-    // بنك أسئلة التدريب
-    const BANK = {
-      easy: [
-        'sin(x)/x', 'tan(x)/x', '(1-cos(x))/x**2',
-        'sin(2*x)/(2*x)', 'tan(2*x)/(2*x)', '(1-cos(2*x))/(2*x**2)'
-      ],
-      med: [
-        '(sin(x)-x)/x**3', '(1-cos(x))/ (x**2)', 'tan(3*x)/(3*x)',
-        '(sin(3*x))/(3*x)', '(1-cos(3*x))/(x**2)'
-      ],
-      hard: [
-        '(sin(x)-x + x**3/6)/x**5', '(tan(x)-x)/x**3', '(1-cos(2*x)-2*x**2)/x**4'
-      ]
-    };
-    let difficulty = 'easy';
-    function pickRandom(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
-    function newQuestion(){
-      const list = BANK[difficulty] || BANK.easy;
-      const q = pickRandom(list);
-      const exprText = document.getElementById('exprText');
-      const exprMath = document.getElementById('exprMath');
-      const ansMf = document.getElementById('ansMath');
-      // Build question according to current approach point
-      let evalQ = q;
-      try {
-        const a = (typeof getApproachValue==='function') ? getApproachValue() : 0;
-        if (a !== 0) {
-          const aNum = Number(a);
-          const aStr = '(' + (Number.isFinite(aNum) ? aNum.toPrecision(12) : String(a)) + ')';
-          // replace variable x tokens with (x - a)
-          evalQ = q.replace(/\bx\b/g, `(x - ${aStr})`);
-        }
-      } catch {}
-      exprText.value = evalQ; if (exprMath && exprMath.setValue) exprMath.setValue('', {suppressChangeNotifications: true});
-      if (exprMath) exprMath.style.display = 'none'; if (exprText) exprText.style.display='';
-      document.getElementById('result').innerHTML = '';
-      document.getElementById('result').classList.remove('success-card','fail-card');
-      document.getElementById('hint').style.display = 'none';
-      const hm = document.getElementById('hintMini'); if (hm) hm.style.display = 'none'; hm && (hm.innerHTML = '');
-      const ah = document.getElementById('ansHelp'); if (ah) ah.style.display='';
-      // عرض السؤال بشكل لاتكس منسّق
-      try {
-        const card = document.getElementById('questionDisplay');
-        if (card) {
-          card.style.display = '';
-          let latex;
-          try {
-            const aText = (typeof getApproachLabel==='function') ? getApproachLabel() : '0';
-            if (aText && aText !== '0') {
-              // create a symbolic display using x - (π/4) or x - π
-              const aLatex = (aText === 'π/4') ? '\\frac{\\pi}{4}' : (aText === 'π' ? '\\pi' : aText);
-              const displayQ = q.replace(/\bx\b/g, `(x - ${aLatex})`);
-              latex = toLatex(displayQ);
-            } else {
-              latex = toLatex(exprText.value.trim());
-            }
-          } catch { latex = toLatex(exprText.value.trim()); }
-          card.innerHTML = `<div style='font-size:1.2rem'>\\(${latex}\\)</div>`;
-          if (window.MathJax && MathJax.typesetPromise) MathJax.typesetPromise();
-        }
-      } catch{}
-      exprText.focus();
-    }
-    // أزرار الصعوبة + سؤال جديد + تلميح
-    (function bindGameControls(){
-      var diffSeg = document.getElementById('diffSeg');
-      if (diffSeg) {
-        diffSeg.addEventListener('click', function(e){
-          const btn = e.target.closest('.seg-btn'); if (!btn) return;
-          difficulty = btn.dataset.diff;
-          document.querySelectorAll('#diffSeg .seg-btn').forEach(function(b){ b.classList.toggle('active', b===btn); });
-        });
-      }
-      var newQBtn = document.getElementById('newQ'); if (newQBtn) newQBtn.addEventListener('click', newQuestion);
-      var hintBtn = document.getElementById('hintBtn'); if (hintBtn) hintBtn.addEventListener('click', function(){
-      const hintMini = document.getElementById('hintMini');
-      const hint = document.getElementById('hint');
-      const expr = getExprInput();
-      const need = { sin: /sin\s*\(/.test(expr), cos: /cos\s*\(/.test(expr), tan: /tan\s*\(/.test(expr) };
-      let html = '';
-      const aText = (typeof getApproachLabel==='function') ? getApproachLabel() : '0';
-      html += `<div><strong>${(lang==='ar'?'تلميحات السلسلة:':'Series hints:')}</strong></div>`;
-      if (aText !== '0') {
-        html += `<div class='muted'>${(lang==='ar'? 'اقترب من ':'Approach at ')} x→${aText}. ${(lang==='ar'?'استخدم التحويل ':'Use substitution ')} u = x - ${aText} ${(lang==='ar'?'ثم طبِّق توسعات ماكلورين حول u→0.':'then apply Maclaurin expansions at u→0.')}</div>`;
-      }
-      const n = parseInt(document.getElementById('order').value);
-      if (need.sin) html += `<div>${sinSeriesLatex(n)}</div>`;
-      if (need.cos) html += `<div>${cosSeriesLatex(n)}</div>`;
-      if (need.tan) html += `<div>${tanSeriesLatex(n)}</div>`;
-      if (hintMini) { hintMini.innerHTML = html; hintMini.style.display = hintMini.style.display==='none'? '' : 'none'; }
-      else { hint.innerHTML = html; hint.style.display = hint.style.display==='none'? '' : 'none'; }
-      if (window.MathJax && MathJax.typesetPromise) MathJax.typesetPromise();
-      });
-    })();
-    // أزرار MathLive: إدراج قوالب مباشرة داخل الحقل WYSIWYG
-    function handleInsMath(type){
-      const mf = document.getElementById('ansMath'); if (!mf) return;
-      if (type==='frac') {
-        // Insert fraction with placeholders without moving focus
-        mf.insert('\\frac{\\placeholder{}}{\\placeholder{}}');
-      }
-      else if (type==='pow') mf.insert('^{ }');
-      else if (type==='sqrt') mf.insert('\\sqrt{}');
-      else if (type==='parens') mf.insert('\\left(\\right)');
-      else if (type==='pi') mf.insert('\\pi');
-      else if (type==='sin') mf.insert('\\sin\\left(\\right)');
-      else if (type==='cos') mf.insert('\\cos\\left(\\right)');
-      else if (type==='tan') mf.insert('\\tan\\left(\\right)');
-    }
-    (function setupKeypads(){
-      const ansPad = document.getElementById('ansPad');
-      if (ansPad) ansPad.addEventListener('click', function(e){
-        const b = e.target.closest('.mini-btn'); if (!b) return;
-        try {
-          const tx = document.getElementById('ansText'); const mf = document.getElementById('ansMath');
-          if (tx) tx.style.display='none'; mf.style.display='';
-          // افتح الكيبورد الرياضي فورًا
-          if (mf && mf.focus) mf.focus({ preventScroll: true });
-          kbTarget = 'ans';
-          if (window.openMathKB) window.openMathKB();
-          try {
-            if (window.mathVirtualKeyboard) window.mathVirtualKeyboard.visible = true;
-            if (mf.showVirtualKeyboard) mf.showVirtualKeyboard(); else if (mf.executeCommand) mf.executeCommand('showVirtualKeyboard');
-          } catch{}
-        } catch{}
-        handleInsMath(b.dataset.ins);
-      });
-      const ansMf = document.getElementById('ansMath');
-      if (ansMf) {
-        ansMf.addEventListener('keydown', function(e){
-          if ((e.ctrlKey || e.metaKey) && e.key === '/') { e.preventDefault(); handleInsMath('frac'); }
-          // عند الضغط Enter أو Escape: أغلق الكيبورد وأعد التركيز للنص
-          if (e.key === 'Enter' || e.key === 'Escape') {
-            e.preventDefault();
-            try { const tx = document.getElementById('ansText'); const mf = document.getElementById('ansMath'); const v = mf && mf.getValue ? String(mf.getValue('latex')||'') : ''; if (tx) tx.value = v; } catch{}
-            try { document.activeElement.blur(); } catch{}
-            try { if (mf.hideVirtualKeyboard) mf.hideVirtualKeyboard(); else if (mf.executeCommand) mf.executeCommand('hideVirtualKeyboard'); } catch{}
-            try { const tx = document.getElementById('ansText'); if (tx) { mf.style.display='none'; tx.style.display=''; tx.focus(); } } catch{}
-          }
-        });
-      }
-    })();
+    def header(self):
+        st.markdown("<div class='glass-card'>"+
+                    f"<h2>🧮 {self.tr.t('title')}</h2>"+
+                    f"<div class='muted'>{self.tr.t('desc')}</div>"+
+                    "</div>", unsafe_allow_html=True)
 
-    // أدوات مساعدة لقراءة المجموعات { ... } في LaTeX
-    function findBraceGroup(str, start){
-      let i = start;
-      while (i < str.length && str[i] !== '{') i++;
-      if (i >= str.length || str[i] !== '{') return null;
-      let depth = 0; let j = i + 1; const begin = j;
-      while (j < str.length){
-        const ch = str[j];
-        if (ch === '\\') { j += 2; continue; }
-        if (ch === '{') depth++;
-        else if (ch === '}') { if (depth === 0) return { content: str.slice(begin, j), end: j }; else depth--; }
-        j++;
-      }
-      return null;
-    }
-    function replaceAllFracLatex(s){
-      // طبع موحّد لـ \frac, \dfrac, \tfrac مع دعم تداخل الأقواس
-      s = s.replace(/\\dfrac/g, '\\frac').replace(/\\tfrac/g, '\\frac');
-      let i = 0;
-      while (true){
-        const idx = s.indexOf('\\frac', i);
-        if (idx === -1) break;
-        let k = idx + 5; // length of "\\frac"
-        const num = findBraceGroup(s, k);
-        if (!num) { i = idx + 5; continue; }
-        const den = findBraceGroup(s, num.end + 1);
-        if (!den) { i = idx + 5; continue; }
-        const numJS = `(${latexToJSExpr(num.content)})`;
-        const denJS = `(${latexToJSExpr(den.content)})`;
-        const repl = `${numJS}/${denJS}`;
-        s = s.slice(0, idx) + repl + s.slice(den.end + 1);
-        i = idx + repl.length;
-      }
-      return s;
-    }
-    // تحويل LaTeX إلى تعبير JS ثم إلى قيمة رقمية
-    function latexToJSExpr(lx){
-      if (!lx) return '';
-      let s = lx;
-      s = s.replace(/\\left|\\right/g, '');
-      // fractions (robust, يدعم التداخل و x^{2} داخل الكسر)
-      s = replaceAllFracLatex(s);
-      // sqrt
-      const sqrt = /\\sqrt\{([^{}]+)\}/g;
-      while (sqrt.test(s)) s = s.replace(sqrt, (m,a)=>`(${latexToJSExpr(a)})**0.5`);
-      // trig
-      s = s.replace(/\\sin\s*\(([^)]+)\)/g, (m,a)=>`Math.sin(${latexToJSExpr(a)})`);
-      s = s.replace(/\\cos\s*\(([^)]+)\)/g, (m,a)=>`Math.cos(${latexToJSExpr(a)})`);
-      s = s.replace(/\\tan\s*\(([^)]+)\)/g, (m,a)=>`Math.tan(${latexToJSExpr(a)})`);
-      // pi
-      s = s.replace(/\\pi/g, 'Math.PI');
-      // powers like x^{2}
-      s = s.replace(/([0-9A-Za-z_\)]+)\^\{([^}]+)\}/g, (m,base,exp)=>`${base}**(${latexToJSExpr(exp)})`);
-      // cleanup braces to parentheses
-      s = s.replace(/\{([^{}]+)\}/g, (m,a)=>`(${a})`);
-      s = s.replace(/\\cdot/g, '*');
-      return s;
-    }
-    function evalLatexNumeric(lx){
-      try{
-        const expr = latexToJSExpr(lx).trim();
-        if (!expr) return NaN;
-        const ok = /^[0-9\s+\-*/().A-Za-z_]*$/.test(expr);
-        if (!ok) return NaN;
-        // eslint-disable-next-line no-new-func
-        return Function(`return (${expr});`)();
-      }catch{ return NaN; }
-    }
-    // HUD: عرض x→a تحت حقل نقطة الاقتراب
-    function updateApproachHUD(){
-      const hud = document.getElementById('approachHUD'); if (!hud) return;
-      const aText = (typeof getApproachLabel==='function') ? getApproachLabel() : '0';
-      const content = `\\(x \\to ${aText || '0'}\\)`;
-      hud.innerHTML = content;
-      if (window.MathJax && MathJax.typesetPromise) MathJax.typesetPromise();
-    }
-    // قراءة قيمة نقطة الاقتراب من الحقل الرياضي/النصي
-    function getApproachInput(){
-      const pm = document.getElementById('pointMath'); const pt = document.getElementById('pointText');
-      let v = '';
-      try {
-        const mfVisible = pm && pm.style.display !== 'none';
-        if (mfVisible && pm.getValue) v = String(pm.getValue('latex')||'');
-        else v = String(pt ? pt.value||'' : '');
-      } catch { v = String(pt ? pt.value||'' : ''); }
-      return String(v||'').trim();
-    }
-    function getApproachValue(){
-      const s = getApproachInput();
-      if (!s) return 0;
-      const val = evalLatexNumeric(s);
-      return (typeof val==='number' && Number.isFinite(val)) ? val : 0;
-    }
-    function approachTextToLatex(txt){
-      let t = String(txt||'');
-      t = t.replace(/pi/gi, '\\pi');
-      t = t.replace(/\*\*/g, '^');
-      t = t.replace(/\*/g, ' ');
-      return t;
-    }
-    function getApproachLabel(){
-      const pm = document.getElementById('pointMath'); const pt = document.getElementById('pointText');
-      try {
-        const mfVisible = pm && pm.style.display !== 'none';
-        if (mfVisible && pm.getValue) {
-          const lx = String(pm.getValue('latex')||'').trim();
-          return lx || '0';
-        }
-        const raw = String(pt ? pt.value||'' : '').trim();
-        return raw ? approachTextToLatex(raw) : '0';
-      } catch { return '0'; }
-    }
-    async function initAudioHQ(){
-      try {
-        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        // fetch an existing file (applause.wav) to avoid 404s
-        const resp = await fetch('audio/applause.wav', { cache: 'no-store' });
-        const buf = await resp.arrayBuffer();
-        applauseBuffer = await audioCtx.decodeAudioData(buf);
-        return true;
-      } catch(e) { return false; }
-    }
-    // Menu tip controls (anchored to answer menu)
-    function showMenuTip(){ const el = document.getElementById('ansMenuTip'); if (!el) return; el.style.display='block'; }
-    function hideMenuTip(mark){ const el = document.getElementById('ansMenuTip'); if (!el) return; el.style.display='none'; if (mark) { try { localStorage.setItem('menuTipSeen','1'); } catch {} } }
-    (function bindMenu(){ const b = document.getElementById('ansMenuBtn'); const tip = document.getElementById('ansMenuTip'); if (!b || !tip) return; b.addEventListener('mouseenter', showMenuTip); b.addEventListener('mouseleave', hideMenuTip); b.addEventListener('click', ()=>{ if (tip.style.display==='none' || tip.style.display==='') showMenuTip(); else hideMenuTip(true); }); })();
-    function playApplauseHQ(){
-      // returns true if played via WebAudio
-      if (!audioCtx || !applauseBuffer) return false;
-      try {
-        const src = audioCtx.createBufferSource(); src.buffer = applauseBuffer;
-        const gain = audioCtx.createGain(); gain.gain.value = 0.0;
-        const comp = audioCtx.createDynamicsCompressor();
-        comp.threshold.value = -24; comp.knee.value = 30; comp.ratio.value = 6; comp.attack.value = 0.003; comp.release.value = 0.25;
-        const lp = audioCtx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 8000; lp.Q.value = 0.7;
-        src.connect(comp); comp.connect(lp); lp.connect(gain); gain.connect(audioCtx.destination);
-        const now = audioCtx.currentTime; gain.gain.cancelScheduledValues(now); gain.gain.setValueAtTime(0.0, now);
-        gain.gain.linearRampToValueAtTime(1.0, now + 0.6);
-        src.start();
-        return true;
-      } catch(e) { return false; }
-    }
-    window.addEventListener('click', async ()=>{ try{ if(!audioCtx || !applauseBuffer) await initAudioHQ(); }catch{} }, { once: true });
-  </script>
-</body>
-</html>
+    def quick_solve(self):
+        x = self.engine.x
+        expr_label = self.tr.t('expr')
+        expr_str = st.text_input(expr_label, value="sin(x)/x", key='expr_q')
+        # Approach point selector
+        a_label = self.tr.t('approach_point')
+        a_str = st.text_input(a_label, value="0", key='a_q')
+        try:
+            a_val = sp.sympify(a_str, locals={'pi': sp.pi}) if a_str.strip() else sp.Integer(0)
+        except Exception:
+            a_val = sp.Integer(0)
+        order = st.slider(self.tr.t('order'), min_value=3, max_value=15, value=7, step=2, key='order_q')
+        solve = st.button(self.tr.t('solve'), type='primary', key='solve_q')
+        if solve:
+            ok, result = self.engine.quick_limit(expr_str, a=a_val)
+            card_open = "<div class='glass-card'>"
+            if not ok:
+                st.markdown(card_open + f"<div class='reaction'>😕</div><p>{self.tr.t('invalid')}</p></div>", unsafe_allow_html=True)
+                return
+            st.markdown(card_open + f"<h4>{self.tr.t('limit_result')}</h4>", unsafe_allow_html=True)
+            st.latex(sp.latex(sp.limit(self.engine.parse(expr_str), x, a_val)) + f"= {sp.latex(result)}")
+            st.markdown("</div>", unsafe_allow_html=True)
+            # Show series as a bonus detail
+            ok2, steps = self.engine.series_steps(expr_str, order, a=a_val)
+            if ok2:
+                st.markdown("<div class='glass-card'>" + f"<h4>{self.tr.t('series_expansions')}</h4>", unsafe_allow_html=True)
+                for s in steps['expansions']:
+                    st.latex(s)
+                st.markdown("</div>", unsafe_allow_html=True)
 
+    def step_by_step(self):
+        expr_str = st.text_input(self.tr.t('expr'), value="(1-cos(x))/x**2", key='expr_s')
+        a_label = self.tr.t('approach_point')
+        a_str = st.text_input(a_label, value="0", key='a_s')
+        try:
+            a_val = sp.sympify(a_str, locals={'pi': sp.pi}) if a_str.strip() else sp.Integer(0)
+        except Exception:
+            a_val = sp.Integer(0)
+        order = st.slider(self.tr.t('order'), min_value=3, max_value=15, value=7, step=2, key='order_s')
+        if st.button(self.tr.t('solve'), key='solve_s'):
+            ok, steps = self.engine.series_steps(expr_str, order, a=a_val)
+            if not ok:
+                st.markdown("<div class='glass-card'><div class='reaction'>😕</div><p>" + self.tr.t('invalid') + "</p></div>", unsafe_allow_html=True)
+                return
+            st.markdown("<div class='glass-card'>" + f"<h4>{self.tr.t('series_expansions')}</h4>", unsafe_allow_html=True)
+            for s in steps['expansions']:
+                st.latex(s)
+            st.markdown("</div>", unsafe_allow_html=True)
+            st.markdown("<div class='glass-card'>" + f"<h4>{self.tr.t('simplified_series')}</h4>", unsafe_allow_html=True)
+            for s in steps['simplified']:
+                st.latex(s)
+            st.markdown("</div>", unsafe_allow_html=True)
+            st.markdown("<div class='glass-card'>" + f"<h4>{self.tr.t('final_limit')}</h4>", unsafe_allow_html=True)
+            for s in steps['final']:
+                st.latex(s)
+            st.markdown("</div>", unsafe_allow_html=True)
+
+    def training_mode(self):
+        x = self.engine.x
+        st.markdown("<div class='glass-card'>", unsafe_allow_html=True)
+        st.markdown(f"<div class='muted'>{self.tr.t('examples')}</div>", unsafe_allow_html=True)
+
+        # Approach point selector for training mode
+        a_label = self.tr.t('approach_point')
+        col_ap, _ = st.columns([1,3])
+        with col_ap:
+            a_str = st.text_input(a_label, value="0", key='a_t')
+        try:
+            a_val = sp.sympify(a_str, locals={'pi': sp.pi}) if a_str.strip() else sp.Integer(0)
+        except Exception:
+            a_val = sp.Integer(0)
+
+        # Visual math inputs (LaTeX) with quick buttons
+        colA, colB = st.columns(2)
+        # Defaults held in session_state
+        if 'latex_expr' not in st.session_state:
+            st.session_state.latex_expr = r"\frac{\tan(x)}{x}"
+        if 'latex_ans' not in st.session_state:
+            st.session_state.latex_ans = r"1"
+
+        with colA:
+            st.write("**" + self.tr.t('expr') + "**")
+            if st_math_input:
+                latex_expr = st_math_input(value=st.session_state.latex_expr, height=60, key='latex_expr_input')
+            else:
+                latex_expr = st.text_input("LaTeX", value=st.session_state.latex_expr, key='latex_expr_fallback')
+        with colB:
+            st.write("**" + self.tr.t('answer') + "**")
+            if st_math_input:
+                latex_ans = st_math_input(value=st.session_state.latex_ans, height=60, key='latex_ans_input')
+            else:
+                latex_ans = st.text_input("LaTeX", value=st.session_state.latex_ans, key='latex_ans_fallback')
+
+        # Quick insertion buttons
+        b1, b2, b3, _ = st.columns([1,1,1,3])
+        if b1.button("\u2044 كسر", key='btn_frac'):
+            # Insert template at end (component will place cursor in numerator by default)
+            st.session_state.latex_expr = st.session_state.latex_expr + r" \\frac{}{}"
+            st.rerun()
+        if b2.button("^ أس", key='btn_pow'):
+            st.session_state.latex_expr = st.session_state.latex_expr + r" {}^{}"
+            st.rerun()
+        if b3.button("√ جذر", key='btn_sqrt'):
+            st.session_state.latex_expr = st.session_state.latex_expr + r" \\sqrt{}"
+            st.rerun()
+
+        st.markdown("</div>", unsafe_allow_html=True)
+
+        # Compute using LaTeX → SymPy
+        if st.button(self.tr.t('check'), key='check_t'):
+            expr_sym = None
+            ans_sym = None
+            try:
+                if parse_latex:
+                    expr_sym = parse_latex(latex_expr)
+                    ans_sym = parse_latex(latex_ans)
+                else:
+                    # Fallback to plain parsing from text
+                    expr_sym = self.engine.parse(latex_expr)
+                    ans_sym = self.engine.parse(latex_ans)
+            except Exception:
+                expr_sym = None
+                ans_sym = None
+
+            if expr_sym is None or ans_sym is None:
+                st.markdown("<div class='glass-card'><div class='reaction'>😕</div><p>" + self.tr.t('invalid') + "</p></div>", unsafe_allow_html=True)
+                return
+
+            try:
+                L = sp.limit(expr_sym, x, a_val)
+            except Exception:
+                st.markdown("<div class='glass-card'><div class='reaction'>😕</div><p>" + self.tr.t('invalid') + "</p></div>", unsafe_allow_html=True)
+                return
+
+            # Compare
+            success = False
+            try:
+                diff = sp.simplify(L - ans_sym)
+                success = diff == 0
+                if not success:
+                    fnum = float(sp.N(diff.subs({x: 1e-6})))
+                    success = abs(fnum) < 1e-6
+            except Exception:
+                success = False
+
+            if success:
+                st.markdown("<div class='glass-card center'><div class='reaction'>👏😄🎉</div><p>" + self.tr.t('success') + "</p></div>", unsafe_allow_html=True)
+                b64 = get_applause_b64()
+                st.markdown(f"<audio autoplay src='data:audio/wav;base64,{b64}'></audio>", unsafe_allow_html=True)
+            else:
+                st.markdown("<div class='glass-card center'><div class='reaction'>😕</div><p>" + self.tr.t('fail') + "</p></div>", unsafe_allow_html=True)
+
+    def run(self):
+        self.sidebar()
+        self.inject_css()
+        self.header()
+        mode = st.tabs([self.tr.t('quick'), self.tr.t('steps'), self.tr.t('train')])
+        with mode[0]:
+            self.quick_solve()
+        with mode[1]:
+            self.step_by_step()
+        with mode[2]:
+            self.training_mode()
+
+if __name__ == '__main__':
+    App().run()
