@@ -355,6 +355,13 @@
       }
     };
 
+    // Success reaction image + default phrase
+    const SUCCESS_REACTION_NAME = 'reaction101.jpg';
+    const SUCCESS_MSG_DEFAULT = {
+      ar: 'عندك جينات اينشتاين',
+      en: "You've got Einstein genes"
+    };
+
     const STR = {
       ar: {
         title: '🧮 نهايات المثلثات باستخدام ماكلورين',
@@ -551,8 +558,21 @@
     function showSuccess(value) {
       const r = document.getElementById('result');
       const s = STR[lang];
+      // Phrase resolution: custom messages may define 'success'; else default; else STR.success
+      const customMap = (reactionMessages && reactionMessages[lang]) ? reactionMessages[lang] : null;
+      let phrase = '';
+      if (customMap && Object.prototype.hasOwnProperty.call(customMap, 'success')) {
+        const p = String(customMap['success']||'').trim();
+        if (p) phrase = p;
+      }
+      if (!phrase) {
+        const p2 = String(SUCCESS_MSG_DEFAULT[lang]||'').trim();
+        if (p2) phrase = p2;
+      }
+      const phraseHTML = phrase ? `<h3 class='fade-in headline'>${phrase}</h3>` : `<p class='fade-in'>${s.success}</p>`;
+      const imageHTML = `<img class='reaction-img' src='reactions/${SUCCESS_REACTION_NAME}' loading='lazy' alt='reaction' />`;
       r.classList.remove('fail-card'); r.classList.add('success-card');
-      r.innerHTML = `<div class='reaction pop-in'>👏😄🎉</div><p class='fade-in'>${s.success}</p><p class='muted fade-in'>${(lang==='ar'?'القيمة ~ ':'Value ~ ')} ${value.toFixed(6)}</p><br/><button id='copyBtn' class='btn-outline'>${s.copy}</button>`;
+      r.innerHTML = `<div class='reaction pop-in'>👏😄🎉</div>${phraseHTML}<p class='muted fade-in'>${(lang==='ar'?'القيمة ~ ':'Value ~ ')} ${value.toFixed(6)}</p><br/>${imageHTML}<br/><button id='copyBtn' class='btn-outline'>${s.copy}</button>`;
       if (!playApplauseHQ()) smoothPlay('applause', 600);
       lastValue = value;
       attachCopy();
@@ -588,10 +608,21 @@
       const r = document.getElementById('result');
       const s = STR[lang];
       const rr = orderedReactionWithIndex();
-      const msgMap = (reactionMessages && reactionMessages[lang]) ? reactionMessages[lang] : REACTION_MSG_DEFAULT[lang];
+      // Prefer a non-empty custom phrase, else fallback to default map,
+      // and finally to the generic fail string.
       const key = String(rr.idx);
-      const hasKey = !!msgMap && Object.prototype.hasOwnProperty.call(msgMap, key);
-      const phrase = hasKey ? msgMap[key] : s.fail;
+      const customMap = (reactionMessages && reactionMessages[lang]) ? reactionMessages[lang] : null;
+      const defMap = REACTION_MSG_DEFAULT[lang];
+      let phrase = '';
+      if (customMap && Object.prototype.hasOwnProperty.call(customMap, key)) {
+        const p = String(customMap[key]||'').trim();
+        if (p) phrase = p;
+      }
+      if (!phrase && defMap && Object.prototype.hasOwnProperty.call(defMap, key)) {
+        const p2 = String(defMap[key]||'').trim();
+        if (p2) phrase = p2;
+      }
+      if (!phrase) phrase = s.fail;
       const phraseHTML = phrase ? `<h3 class='fade-in headline'>${phrase}</h3>` : '';
       const imageHTML = rr.src ? `<img class='reaction-img' src='${rr.src}' loading='lazy' alt='reaction' />` : '';
       r.classList.remove('success-card'); r.classList.add('fail-card');
