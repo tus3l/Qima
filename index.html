@@ -334,7 +334,9 @@
         '8': 'ياخي انت كيف كذا؟',
         '9': 'كذا كثير !!',
         '10': '',
-        '11': 'تفكر و تفكر و تفكر واخر شي ذا حلك !'
+        '11': 'تفكر و تفكر و تفكر واخر شي ذا حلك !',
+        '12': '', '13': '', '14': '', '15': '', '16': '', '17': '',
+        '18': 'الي يبي العز لاينشد عن الراحه نيران الامجاد تبي من يصاليها'
       },
       en: {
         '1': 'No way that’s correct!!',
@@ -347,7 +349,9 @@
         '8': 'How did you even do that?',
         '9': 'That’s a bit much!',
         '10': '',
-        '11': 'You think and think… and that’s your answer!'
+        '11': 'You think and think… and that’s your answer!',
+        '12': '', '13': '', '14': '', '15': '', '16': '', '17': '',
+        '18': 'الي يبي العز لاينشد عن الراحه نيران الامجاد تبي من يصاليها'
       }
     };
 
@@ -558,11 +562,26 @@
     function orderedReactionWithIndex(){
       let failCount = 0;
       try { failCount = attempts.filter(x=>x===0).length; } catch{}
-      const maxIdx = 11; // عدد الرياكشنات المتوفر افتراضياً
-      // تدوير: 1→2→…→11 ثم العودة إلى 1
+      // إذا توفر manifest، دوّر على عناصره + إدخال خاص للعبارة فقط (18)
+      if (reactionList && reactionList.length) {
+        const base = failCount >= 1 ? failCount : 1;
+        const total = reactionList.length + 1; // زائد 1 للعبارة رقم 18
+        const pos = ((base - 1) % total);
+        if (pos < reactionList.length) {
+          const pick = reactionList[pos];
+          const m = String(pick).match(/(\d+)/);
+          const idx = m ? parseInt(m[1], 10) : pos + 1;
+          return { src: `reactions/${pick}`, idx };
+        } else {
+          return { src: null, idx: 18 };
+        }
+      }
+      // خلاف ذلك، استخدم تدوير رقمي حتى 18، و18 بدون صورة
+      const maxIdx = 18;
       const base = failCount >= 1 ? failCount : 1;
       let idx = ((base - 1) % maxIdx) + 1;
       if (!Number.isFinite(idx) || idx < 1) idx = 1;
+      if (idx === 18) return { src: null, idx };
       return { src: `reactions/reaction${idx}.jpg`, idx };
     }
     function showFailure(value) {
@@ -570,9 +589,13 @@
       const s = STR[lang];
       const rr = orderedReactionWithIndex();
       const msgMap = (reactionMessages && reactionMessages[lang]) ? reactionMessages[lang] : REACTION_MSG_DEFAULT[lang];
-      const phrase = (msgMap && msgMap[String(rr.idx)]) ? msgMap[String(rr.idx)] : s.fail;
+      const key = String(rr.idx);
+      const hasKey = !!msgMap && Object.prototype.hasOwnProperty.call(msgMap, key);
+      const phrase = hasKey ? msgMap[key] : s.fail;
+      const phraseHTML = phrase ? `<h3 class='fade-in headline'>${phrase}</h3>` : '';
+      const imageHTML = rr.src ? `<img class='reaction-img' src='${rr.src}' loading='lazy' alt='reaction' />` : '';
       r.classList.remove('success-card'); r.classList.add('fail-card');
-      r.innerHTML = `<div class='reaction pop-in'>😕</div><h3 class='fade-in headline'>${phrase}</h3><p class='muted fade-in'>${(lang==='ar'?'القيمة المتوقعة ~ ':'Expected ~ ')} ${value.toFixed(6)}</p><br/><img class='reaction-img' src='${rr.src}' loading='lazy' alt='reaction' /><br/><button id='copyBtn' class='btn-outline'>${s.copy}</button>`;
+      r.innerHTML = `<div class='reaction pop-in'>😕</div>${phraseHTML}<p class='muted fade-in'>${(lang==='ar'?'القيمة المتوقعة ~ ':'Expected ~ ')} ${value.toFixed(6)}</p><br/>${imageHTML}<br/><button id='copyBtn' class='btn-outline'>${s.copy}</button>`;
       lastValue = value;
       attachCopy();
     }
