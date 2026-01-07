@@ -341,6 +341,10 @@
           <button class="seg-btn" data-calc="int">تكامل</button>
         </div>
         <div class="spacer"></div>
+        <div class="seg" id="calcQualitySeg" title="الدقة (عدد النقاط)">
+          <button class="seg-btn active" data-q="normal">عادية</button>
+          <button class="seg-btn" data-q="high">عالية</button>
+        </div>
       </div>
       <div class="row" style="margin-top:8px; gap:10px; align-items:flex-end; flex-wrap:wrap;">
         <div style="flex:2 1 360px;">
@@ -572,6 +576,25 @@
       return expr;
     }
 
+    // تعبيرات وضع التفاضل/التكامل: دعم دوال أوسع
+    function sanitizeCalcExpr(expr){
+      // يسمح بالأحرف والأرقام و x والعمليات ودوال: sin cos tan exp log ln sqrt abs
+      const ok = /^[\s0-9x+\-*/().,A-Za-z_]*$/.test(expr);
+      if (!ok) return null;
+      let s = expr;
+      s = s.replace(/\^/g, '**');
+      // map ln->log
+      s = s.replace(/\bln\s*\(/g, 'Math.log(');
+      s = s.replace(/\blog\s*\(/g, 'Math.log(');
+      s = s.replace(/\bexp\s*\(/g, 'Math.exp(');
+      s = s.replace(/\bsqrt\s*\(/g, 'Math.sqrt(');
+      s = s.replace(/\babs\s*\(/g, 'Math.abs(');
+      s = s.replace(/\bsin\s*\(/g, 'Math.sin(')
+             .replace(/\bcos\s*\(/g, 'Math.cos(')
+             .replace(/\btan\s*\(/g, 'Math.tan(');
+      return s;
+    }
+
     // مدخلات وضع التفاضل/التكامل
     function getCalcExpr(){
       const mf = document.getElementById('calcMath');
@@ -622,7 +645,7 @@
           let valStr = '';
           if (at!=null){
             let val = NaN; try { val = pyodideReady? await window.pyodide.runPythonAsync(`deriv_slope(${JSON.stringify(expr)}, ${at})`) : NaN; } catch{}
-            if (!Number.isFinite(val)) { try { const h=1e-5; const f=compileExprFn(expr); val = (f(at+h)-f(at-h))/(2*h);} catch{} }
+            if (!Number.isFinite(val)) { try { const h=1e-5; const f=compileCalcExprFn(expr); val = (f(at+h)-f(at-h))/(2*h);} catch{} }
             if (Number.isFinite(val)) valStr = (lang==='ar'? `وقيمة المشتقة عند x=${at} هي ${val.toFixed(6)}` : `Derivative at x=${at} is ${val.toFixed(6)}`);
           }
           const latexHtml = latexD? `<div>\\(\\dfrac{d}{dx}[f(x)] = ${latexD}\\)</div>` : '';
@@ -645,41 +668,70 @@
       } catch(err){ if (out) out.innerHTML = `<p class='muted'>حدث خطأ أثناء الحساب</p>`; }
     }
 
+    function getCalcQuality(){
+      const seg = document.getElementById('calcQualitySeg'); if (!seg) return 'normal';
+      const b = seg.querySelector('.seg-btn.active'); return b? (b.dataset.q||'normal'):'normal';
+    }
+
     async function renderCalcGraph(expr, opts){
       const target = document.getElementById('calcGraph'); if (!target) return;
       const isMobile = window.innerWidth <= 640;
-      const a = 0; const R = 2.0; const xmin=a-R, xmax=a+R;
-      let f; try { f = compileExprFn(expr); } catch { f=null; }
-      const N = isMobile? 380 : 700;
+      // نطاق x افتراضي واضح، ويمكن ضبطه لاحقًا ديناميكيًا إن لزم
+      const R = 2.0; const xmin=-R, xmax=R;
+      let f; try { f = compileCalcExprFn(expr); } catch { f=null; }
+      const q = getCalcQuality();
+      const baseN = (q==='high') ? (isMobile? 560 : 1000) : (isMobile? 420 : 760);
+      const N = baseN;
       const xs = new Array(N), ys=new Array(N);
       let yMin=Infinity, yMax=-Infinity;
       const addExt=(arr)=>{ for(const v of arr){ if(Number.isFinite(v)){ yMin=Math.min(yMin,v); yMax=Math.max(yMax,v);} } };
-      for(let i=0;i<N;i++){ const x = xmin + (i*(xmax-xmin))/(N-1); xs[i]=x; try{ ys[i]= f?f(x):evalAt(expr,x);} catch{ ys[i]=NaN; } }
+      for(let i=0;i<N;i++){ const x = xmin + (i*(xmax-xmin))/(N-1); xs[i]=x; try{ ys[i]= f?f(x):evalCalcAt(expr,x);} catch{ ys[i]=NaN; } }
       addExt(ys);
-      const data=[ { x:xs, y:ys, mode:'lines', name:(lang==='ar'?'الدالة':'Function'), line:{ color:'#5b7cff', width:2 } } ];
+      const data=[ { x:xs, y:ys, mode:'lines', name:(lang==='ar'?'الدالة':'Function'), line:{ color:'#5b7cff', width:2.6 } } ];
+      const shapes=[]; const annotations=[];
       if (opts && opts.mode==='diff' && opts.at!=null){
-        let m=NaN, y0=NaN; try{ y0 = f?f(opts.at):evalAt(expr, opts.at);} catch{}
+        let m=NaN, y0=NaN; try{ y0 = f?f(opts.at):evalCalcAt(expr, opts.at);} catch{}
         try{ if(pyodideReady) m = await window.pyodide.runPythonAsync(`deriv_slope(${JSON.stringify(expr)}, ${opts.at})`); } catch{}
-        if (!Number.isFinite(m)) { try { const h=1e-5; m = ((f?f(opts.at+1e-5):evalAt(expr,opts.at+1e-5)) - (f?f(opts.at-1e-5):evalAt(expr,opts.at-1e-5)))/(2e-5);} catch{} }
+        if (!Number.isFinite(m)) { try { const h=1e-5; m = ((f?f(opts.at+1e-5):evalCalcAt(expr,opts.at+1e-5)) - (f?f(opts.at-1e-5):evalCalcAt(expr,opts.at-1e-5)))/(2e-5);} catch{} }
         if (Number.isFinite(m) && Number.isFinite(y0)){
           const tx=[xmin,xmax]; const ty=tx.map(x=> y0 + m*(x-opts.at));
-          data.push({ x:tx, y:ty, mode:'lines', name:(lang==='ar'?'مماس':'Tangent'), line:{ color:'#10b981', width:2, dash:'dash' } });
-          data.push({ x:[opts.at], y:[y0], mode:'markers', name:(lang==='ar'?'نقطة':'Point'), marker:{ color:'#10b981', size:8 } });
+          data.push({ x:tx, y:ty, mode:'lines', name:(lang==='ar'?'مماس':'Tangent'), line:{ color:'#10b981', width:2.4, dash:'dash' } });
+          data.push({ x:[opts.at], y:[y0], mode:'markers', name:(lang==='ar'?'نقطة':'Point'), marker:{ color:'#10b981', size:10 } });
           addExt(ty); addExt([y0]);
+          // خط عمودي عند x=a مع وسم
+          shapes.push({ type:'line', x0:opts.at, x1:opts.at, y0:0, y1:1, xref:'x', yref:'paper', line:{ color:'#6b7280', width:1, dash:'dot' }});
+          annotations.push({ x:opts.at, xanchor:'center', y:1, yref:'paper', yshift:14, text:(lang==='ar'? 'x=a':'x=a'), showarrow:false, font:{ size:isMobile?10:11 } });
         }
       }
       if (opts && opts.mode==='int' && opts.bounds){
         const a0 = Math.min(opts.bounds[0], opts.bounds[1]);
         const b0 = Math.max(opts.bounds[0], opts.bounds[1]);
         const xi=[], yi=[]; const n2 = Math.max(40, Math.round(N*(b0-a0)/(xmax-xmin)));
-        for(let i=0;i<n2;i++){ const x=a0 + (i*(b0-a0))/(n2-1); xi.push(x); try{ yi.push(f?f(x):evalAt(expr,x)); } catch{ yi.push(NaN); } }
-        data.push({ x: xi.concat([b0,a0]), y: yi.concat([0,0]), type:'scatter', fill:'toself', name:(lang==='ar'?'مساحة':'Area'), line:{ color:'rgba(167,139,250,.6)' }, fillcolor:'rgba(167,139,250,.25)' });
+        for(let i=0;i<n2;i++){ const x=a0 + (i*(b0-a0))/(n2-1); xi.push(x); try{ yi.push(f?f(x):evalCalcAt(expr,x)); } catch{ yi.push(NaN); } }
+        data.push({ x: xi.concat([b0,a0]), y: yi.concat([0,0]), type:'scatter', fill:'toself', name:(lang==='ar'?'مساحة':'Area'), line:{ color:'rgba(167,139,250,.7)' }, fillcolor:'rgba(167,139,250,.18)' });
         addExt(yi);
+        // خطوط عمودية عند a و b وعناوين واضحة
+        shapes.push({ type:'line', x0:a0, x1:a0, y0:0, y1:1, xref:'x', yref:'paper', line:{ color:'#6b7280', width:1, dash:'dot' }});
+        shapes.push({ type:'line', x0:b0, x1:b0, y0:0, y1:1, xref:'x', yref:'paper', line:{ color:'#6b7280', width:1, dash:'dot' }});
+        annotations.push({ x:a0, xanchor:'center', y:1, yref:'paper', yshift:14, text:'a', showarrow:false, font:{ size:isMobile?10:11 } });
+        annotations.push({ x:b0, xanchor:'center', y:1, yref:'paper', yshift:14, text:'b', showarrow:false, font:{ size:isMobile?10:11 } });
       }
       if (!(yMin<yMax)) { yMin=-1; yMax=1; }
-      const padY = Math.max(0.1, (yMax-yMin)*0.08);
+      const padY = Math.max(0.1, (yMax-yMin)*0.12);
       const fontColor = (theme==='light')? '#0f172a' : '#e5e7eb';
-      const layout={ margin:isMobile?{l:24,r:10,t:6,b:30}:{l:36,r:18,t:10,b:36}, paper_bgcolor:'rgba(0,0,0,0)', plot_bgcolor:'rgba(0,0,0,0)', font:{ color:fontColor, size:isMobile?12:13 }, xaxis:{ title:(lang==='ar'?'x':'x'), range:[xmin,xmax] }, yaxis:{ title:'y', range:[yMin-padY,yMax+padY] }, showlegend:true };
+      const gridColor = 'rgba(255,255,255,0.12)';
+      const zeroColor = 'rgba(255,255,255,0.26)';
+      const layout={
+        margin:isMobile?{l:26,r:12,t:8,b:36}:{l:40,r:18,t:12,b:42},
+        paper_bgcolor:'rgba(0,0,0,0)', plot_bgcolor:'rgba(0,0,0,0)', font:{ color:fontColor, size:isMobile?12:14 },
+        xaxis:{ title:(lang==='ar'?'المتغير x':'x'), range:[xmin,xmax], gridcolor:gridColor, zeroline:true, zerolinecolor:zeroColor },
+        yaxis:{ title:'y', range:[yMin-padY,yMax+padY], gridcolor:gridColor, zeroline:true, zerolinecolor:zeroColor },
+        showlegend:true,
+        legend: isMobile? {orientation:'v', x:0, y:1.02} : {orientation:'h'},
+        hovermode:'x unified',
+        shapes,
+        annotations
+      };
       try{ Plotly.react(target, data, layout, { responsive:true, displaylogo:false, displayModeBar:false }); } catch{}
     }
 
@@ -709,11 +761,25 @@
       return Function(js)();
     }
 
+    function evalCalcAt(expr, xval){
+      const safe = sanitizeCalcExpr(expr);
+      if (!safe) throw new Error('invalid');
+      const js = `const x=${xval}; return (${safe});`;
+      return Function(js)();
+    }
+
     // Compile expression once into a fast JS function f(x)
     function compileExprFn(expr){
       const safe = sanitizeExpr(expr);
       if (!safe) throw new Error('invalid');
       // eslint-disable-next-line no-new-func
+      const fn = new Function('x', `return (${safe});`);
+      return function(x){ return fn(x); };
+    }
+
+    function compileCalcExprFn(expr){
+      const safe = sanitizeCalcExpr(expr);
+      if (!safe) throw new Error('invalid');
       const fn = new Function('x', `return (${safe});`);
       return function(x){ return fn(x); };
     }
@@ -1085,6 +1151,13 @@
           const bRow = document.getElementById('calcBoundsRow');
           if (mode==='diff') { if (atRow) atRow.style.display=''; if (bRow) bRow.style.display='none'; }
           else { if (atRow) atRow.style.display='none'; if (bRow) bRow.style.display=''; }
+        });
+      } catch{}
+      try {
+        const qseg = document.getElementById('calcQualitySeg');
+        if (qseg) qseg.addEventListener('click', function(e){
+          const b = e.target.closest('.seg-btn'); if (!b) return;
+          qseg.querySelectorAll('.seg-btn').forEach(x=>x.classList.toggle('active', x===b));
         });
       } catch{}
       try {
@@ -1595,7 +1668,7 @@
 import sympy as sp
 x = sp.symbols('x')
 def parse_expr(s):
-    return sp.sympify(s, locals={'x': x, 'sin': sp.sin, 'cos': sp.cos, 'tan': sp.tan})
+  return sp.sympify(s, locals={'x': x, 'sin': sp.sin, 'cos': sp.cos, 'tan': sp.tan, 'exp': sp.exp, 'log': sp.log, 'ln': sp.log, 'sqrt': sp.sqrt, 'Abs': sp.Abs, 'abs': sp.Abs})
 def deriv_slope(s, x0):
     f = parse_expr(s)
     df = sp.diff(f, x)
@@ -1930,10 +2003,15 @@ def integral_latex(s):
       s = s.replace(/\\sin\s*\(([^)]+)\)/g, (m,a)=>`Math.sin(${latexToJSExpr(a)})`);
       s = s.replace(/\\cos\s*\(([^)]+)\)/g, (m,a)=>`Math.cos(${latexToJSExpr(a)})`);
       s = s.replace(/\\tan\s*\(([^)]+)\)/g, (m,a)=>`Math.tan(${latexToJSExpr(a)})`);
+      s = s.replace(/\\ln\s*\(([^)]+)\)/g, (m,a)=>`Math.log(${latexToJSExpr(a)})`);
+      s = s.replace(/\\log\s*\(([^)]+)\)/g, (m,a)=>`Math.log(${latexToJSExpr(a)})`);
+      s = s.replace(/\\exp\s*\(([^)]+)\)/g, (m,a)=>`Math.exp(${latexToJSExpr(a)})`);
       // pi
       s = s.replace(/\\pi/g, 'Math.PI');
       // powers like x^{2}
       s = s.replace(/([0-9A-Za-z_\)]+)\^\{([^}]+)\}/g, (m,base,exp)=>`${base}**(${latexToJSExpr(exp)})`);
+      // absolute value using |...|
+      s = s.replace(/\|([^|]+)\|/g, (m,a)=>`Math.abs(${latexToJSExpr(a)})`);
       // cleanup braces to parentheses
       s = s.replace(/\{([^{}]+)\}/g, (m,a)=>`(${a})`);
       s = s.replace(/\\cdot/g, '*');
