@@ -737,14 +737,35 @@
         for(let i=0;i<n2;i++){ const x=a0 + (i*(b0-a0))/(n2-1); xi.push(x); try{ yi.push(f?f(x):evalCalcAt(expr,x)); } catch{ yi.push(NaN); } }
         data.push({ x: xi.concat([b0,a0]), y: yi.concat([0,0]), type:'scatter', fill:'toself', name:(lang==='ar'?'مساحة':'Area'), line:{ color:'rgba(167,139,250,.7)' }, fillcolor:'rgba(167,139,250,.18)' });
         addExt(yi);
+        // عزّز المجال بقيم الطرفين لضمان ظهور y الكبيرة (مثل f(x)=5)
+        try {
+          const ya = f? f(a0) : evalCalcAt(expr, a0);
+          const yb = f? f(b0) : evalCalcAt(expr, b0);
+          addExt([ya, yb]);
+        } catch{}
         // خطوط عمودية عند a و b وعناوين واضحة
         shapes.push({ type:'line', x0:a0, x1:a0, y0:0, y1:1, xref:'x', yref:'paper', line:{ color:'#6b7280', width:1, dash:'dot' }});
         shapes.push({ type:'line', x0:b0, x1:b0, y0:0, y1:1, xref:'x', yref:'paper', line:{ color:'#6b7280', width:1, dash:'dot' }});
         annotations.push({ x:a0, xanchor:'center', y:1, yref:'paper', yshift:14, text:'a', showarrow:false, font:{ size:isMobile?10:11 } });
         annotations.push({ x:b0, xanchor:'center', y:1, yref:'paper', yshift:14, text:'b', showarrow:false, font:{ size:isMobile?10:11 } });
+        // اجعل محور Y دائمًا يشمل الصفر لإظهار المساحة حتى الأساس
+        try { yMin = Math.min(yMin, 0); } catch {}
       }
-      if (!(yMin<yMax)) { yMin=-1; yMax=1; }
-      const padY = Math.max(0.1, (yMax-yMin)*0.12);
+      // fallback/تحسينات للمجال الرأسي: في حال دالة ثابتة أو قيم متقاربة
+      if (!(yMin<yMax)) {
+        let v = NaN;
+        try { const mid = (xmin+xmax)/2; v = f? f(mid) : evalCalcAt(expr, mid); } catch{}
+        if (!Number.isFinite(v)) {
+          const num = parseFloat(String(expr).trim());
+          if (Number.isFinite(num)) v = num;
+        }
+        if (Number.isFinite(v)) { yMin = v - 1; yMax = v + 1; }
+        else { yMin=-1; yMax=1; }
+      }
+      if ((yMax - yMin) < 1e-6) {
+        const c = (yMax + yMin)/2; yMin = c - 1; yMax = c + 1;
+      }
+      const padY = Math.max(0.1, Math.abs(yMax-yMin)*0.12);
       const fontColor = (theme==='light')? '#0f172a' : '#e5e7eb';
       const gridColor = 'rgba(255,255,255,0.12)';
       const zeroColor = 'rgba(255,255,255,0.26)';
