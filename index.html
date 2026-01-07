@@ -237,8 +237,7 @@
         <button class="seg-btn active" data-mode="solve">احسب النهاية</button>
         <button class="seg-btn" data-mode="steps">عرض الخطوات</button>
         <button class="seg-btn" data-mode="game">وضع التدريب</button>
-        <button class="seg-btn" data-mode="graph">التمثيل البياني التفاعلي</button>
-          <button class="seg-btn" data-mode="calc">تفاضل/تكامل</button>
+        <button class="seg-btn" data-mode="calc">تفاضل/تكامل</button>
       </div>
     </div>
     <div class="glass-card">
@@ -331,41 +330,9 @@
       </div>
     </div>
     <br />
-    <div id="guide" class="glass-card" style="white-space:pre-wrap"></div>
-    <!-- Interactive Graphing Card -->
-    <div id="graphCard" class="glass-card" style="display:none; margin-top:16px;">
-      <h3 id="graphTitle">📈 التمثيل البياني التفاعلي</h3>
-      <div class="muted" id="graphDesc">يعرض المنحنى ديناميكيًا ويُبرز النهاية عند x→0</div>
-      <div id="graph" style="width:100%; height:420px;"></div>
-      <div class="row" style="margin-top:10px;">
-        <div class="control" style="gap:10px; align-items:center;">
-          <label id="graphOptsLabel">الخيارات</label>
-          <label style="display:flex; align-items:center; gap:6px;"><input type="checkbox" id="optIntegral"> <span id="optIntegralLabel">الحل بالتكامل (تظليل المساحة قرب 0)</span></label>
-          <label style="display:flex; align-items:center; gap:6px;"><input type="checkbox" id="optDerivative"> <span id="optDerivativeLabel">الحل بالتفاضل (خط المماس عند النقطة)</span></label>
-          <label style="display:flex; align-items:center; gap:6px;"><input type="checkbox" id="optSqueeze"> <span id="optSqueezeLabel">إظهار السندة ±m(x)</span></label>
-          <label style="display:flex; align-items:center; gap:6px;"><input type="checkbox" id="optLimitLine"> <span id="optLimitLineLabel">إظهار خط L</span></label>
-        </div>
-        <div class="control" style="gap:10px; align-items:center;">
-          <label id="epsLabel">نطاق التكامل (ε)</label>
-          <input id="eps" type="range" min="0.05" max="1.0" step="0.05" value="0.5" style="width:220px;">
-          <span class="muted" id="epsVal">ε=0.50</span>
-        </div>
-        <div class="control" style="gap:10px; align-items:center;">
-          <label id="x0Label">نقطة المماس</label>
-          <input id="x0Text" class="textfield" placeholder="ادخل نقطة x0 (افتراضيًا قيمة a)" style="max-width:300px;">
-        </div>
-      </div>
-      
-      <div class="control" style="margin-top:10px; gap:8px; flex-wrap:wrap;">
-        <button class="btn-outline" id="zoomIn">Zoom In</button>
-        <button class="btn-outline" id="zoomOut">Zoom Out</button>
-        <button class="btn-outline" id="resetView">Reset View</button>
-        <span class="muted" id="areaLabel" style="margin-inline-start:auto;">المساحة ~ —</span>
-      </div>
-      <div class="muted" id="sympyStatus" style="margin-top:6px;">SymPy: جاري التحميل…</div>
-    </div>
+    <!-- سيتم نقل الدليل لأسفل الصفحة -->
 
-    <!-- بطاقة وضع التفاضل/التكامل المستقل (خارج بطاقة الرسم) -->
+    <!-- بطاقة وضع التفاضل/التكامل المستقل -->
     <div id="calcCard" class="glass-card" style="display:none; margin-top:16px;">
       <h3>🔎 التفاضل والتكامل</h3>
       <div class="row" style="gap:12px; align-items:center; flex-wrap:wrap;">
@@ -399,6 +366,9 @@
       <div id="calcResult" class="glass-card" style="margin-top:10px;"></div>
       <div id="calcGraph" style="width:100%; height:320px; margin-top:10px;"></div>
     </div>
+    <br />
+    <!-- الدليل في أسفل الصفحة كما طلبت -->
+    <div id="guide" class="glass-card" style="white-space:pre-wrap"></div>
   </div>
 
   <!-- يفضل استخدام mp3، مع بديل wav إذا لم يتوفر -->
@@ -552,23 +522,9 @@
       if (btns[0]) btns[0].textContent = s.solve;
       if (btns[1]) btns[1].textContent = s.steps;
       if (btns[2]) btns[2].textContent = s.game;
-      if (btns[3]) btns[3].textContent = s.graph;
-      if (btns[4]) btns[4].textContent = (lang==='ar'? 'تفاضل/تكامل' : 'Calculus');
+      if (btns[3]) btns[3].textContent = (lang==='ar'? 'تفاضل/تكامل' : 'Calculus');
       // Graphing labels
-      const gt = document.getElementById('graphTitle'); if (gt) gt.textContent = (lang==='ar'? '📈 التمثيل البياني التفاعلي' : '📈 Interactive Graphing');
-      const gd = document.getElementById('graphDesc'); if (gd) gd.textContent = (lang==='ar'? 'يعرض المنحنى ديناميكيًا ويُبرز النهاية عند x→0' : 'Displays the curve dynamically and highlights the limit at x→0');
-      const gol = document.getElementById('graphOptsLabel'); if (gol) gol.textContent = (lang==='ar'? 'الخيارات' : 'Options');
-      const il = document.getElementById('optIntegralLabel'); if (il) il.textContent = (lang==='ar'? 'الحل بالتكامل (تظليل المساحة قرب 0)' : 'Integral solution (shade area near 0)');
-      const dl = document.getElementById('optDerivativeLabel'); if (dl) dl.textContent = (lang==='ar'? 'الحل بالتفاضل (خط المماس عند النقطة)' : 'Differential solution (tangent line at point)');
-      const sl = document.getElementById('optSqueezeLabel'); if (sl) sl.textContent = (lang==='ar'? 'إظهار السندة ±m(x)' : 'Show squeeze ±m(x)');
-      const ll = document.getElementById('optLimitLineLabel'); if (ll) ll.textContent = (lang==='ar'? 'إظهار خط L' : 'Show limit line L');
-      const elb = document.getElementById('epsLabel'); if (elb) elb.textContent = (lang==='ar'? 'نطاق التكامل (ε)' : 'Integral range (ε)');
-      const xl = document.getElementById('x0Label'); if (xl) xl.textContent = (lang==='ar'? 'نقطة المماس' : 'Tangent point');
-      const x0t = document.getElementById('x0Text'); if (x0t) x0t.setAttribute('placeholder', (lang==='ar'? 'ادخل نقطة x0 (افتراضيًا قيمة a)' : 'Enter x0 (defaults to a)'));
-      const z1 = document.getElementById('zoomIn'); if (z1) z1.textContent = 'Zoom In';
-      const z2 = document.getElementById('zoomOut'); if (z2) z2.textContent = 'Zoom Out';
-      const zr = document.getElementById('resetView'); if (zr) zr.textContent = (lang==='ar'? 'إعادة الضبط' : 'Reset View');
-      const al = document.getElementById('areaLabel'); if (al) al.textContent = (lang==='ar'? 'المساحة ~ —' : 'Area ~ —');
+      // تمت إزالة عناصر الرسم التفاعلي
       document.getElementById('guide').textContent = s.guide;
       document.getElementById('orderLabel').textContent = s.orderLabel;
       const pointL = document.getElementById('pointLabel'); if (pointL && s.pointLabel) pointL.textContent = s.pointLabel;
@@ -1049,7 +1005,6 @@
       document.getElementById('gameToolbar').style.display = (mode==='game')? '' : 'none';
       document.getElementById('hint').style.display = 'none';
       document.getElementById('hud').style.display = (mode==='game')? '' : 'none';
-      document.getElementById('graphCard').style.display = (mode==='graph')? '' : 'none';
       const calcCard = document.getElementById('calcCard'); if (calcCard) calcCard.style.display = (mode==='calc')? '' : 'none';
       // ضع خانة الإجابة تحت زر التلميح في وضع التدريب
       const ansCont = document.getElementById('ansContainer');
@@ -1065,11 +1020,6 @@
         try { const tg = document.getElementById('trainGraph'); if (tg) tg.style.display = 'none'; } catch{}
         // show the tip on first entry to game mode
         try { const seen = localStorage.getItem('menuTipSeen'); if (!seen) { showMenuTip(); setTimeout(()=>hideMenuTip(true), 4500); } } catch{}
-      } else if (mode==='graph') {
-        try { const x0t = document.getElementById('x0Text'); if (x0t && !x0t.value) x0t.value = String(getApproachValue()); } catch {}
-        try { renderGraph(); } catch {}
-        if (ansCont) ansCont.style.display = 'none';
-        try { const tg = document.getElementById('trainGraph'); if (tg) tg.style.display = 'none'; } catch{}
       } else if (mode==='calc') {
         // إخفاء عناصر طور ماكلورين لجعل الوضع منفصل تمامًا
         try {
@@ -1109,7 +1059,7 @@
       document.getElementById('gameToolbar').style.display = 'none';
       document.getElementById('hint').style.display = 'none';
       const ansCont = document.getElementById('ansContainer'); if (ansCont) ansCont.style.display = 'none';
-      document.getElementById('graphCard').style.display = 'none';
+      // graphCard تمت إزالته
       // order slider change
       document.getElementById('order').addEventListener('input', ()=>{
         const n = parseInt(document.getElementById('order').value);
@@ -1122,8 +1072,7 @@
       try { const pm = document.getElementById('pointMath'); if (pm) pm.addEventListener('input', updateApproachHUD); } catch{}
       try { const pt = document.getElementById('pointText'); if (pt) pt.addEventListener('input', updateApproachHUD); } catch{}
       updateApproachHUD();
-      // Bind graph controls and load SymPy
-      bindGraphControls();
+      // تحميل SymPy لوضع التفاضل/التكامل
       initSymPy();
       // ربط وضع التفاضل/التكامل
       try {
