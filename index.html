@@ -345,6 +345,7 @@
           <button class="seg-btn active" data-q="normal">عادية</button>
           <button class="seg-btn" data-q="high">عالية</button>
         </div>
+        <span id="calcQualityHint" class="muted" style="font-size:.9rem;">عادية: أسرع • عالية: وضوح ودقّة أعلى</span>
       </div>
       <div class="row" style="margin-top:8px; gap:10px; align-items:flex-end; flex-wrap:wrap;">
         <div style="flex:2 1 360px;">
@@ -361,6 +362,10 @@
           <div class="row" style="gap:8px;">
             <input id="calcA" type="text" class="input" placeholder="a" style="flex:1 1 120px;" />
             <input id="calcB" type="text" class="input" placeholder="b" style="flex:1 1 120px;" />
+          </div>
+          <div class="muted" style="margin-top:6px; font-size:.95rem;">
+            <span>ملاحظة: في \(\int_a^b f(x)\,dx\)</span>
+            <span style="margin-inline-start:10px;">تحت: \(a\) بداية الفترة • فوق: \(b\) نهاية الفترة</span>
           </div>
         </div>
         <div>
@@ -643,13 +648,18 @@
           if (pyodideReady){ latexD = await window.pyodide.runPythonAsync(`diff_latex(${JSON.stringify(expr)})`); }
           const at = getCalcAt();
           let valStr = '';
+          let valNum = NaN;
           if (at!=null){
             let val = NaN; try { val = pyodideReady? await window.pyodide.runPythonAsync(`deriv_slope(${JSON.stringify(expr)}, ${at})`) : NaN; } catch{}
             if (!Number.isFinite(val)) { try { const h=1e-5; const f=compileCalcExprFn(expr); val = (f(at+h)-f(at-h))/(2*h);} catch{} }
-            if (Number.isFinite(val)) valStr = (lang==='ar'? `وقيمة المشتقة عند x=${at} هي ${val.toFixed(6)}` : `Derivative at x=${at} is ${val.toFixed(6)}`);
+            if (Number.isFinite(val)) { valNum = val; valStr = (lang==='ar'? `وقيمة المشتقة عند x=${at} هي ${val.toFixed(6)}` : `Derivative at x=${at} is ${val.toFixed(6)}`); }
           }
           const latexHtml = latexD? `<div>\\(\\dfrac{d}{dx}[f(x)] = ${latexD}\\)</div>` : '';
-          if (out) { out.innerHTML = `<div>${latexHtml}<div class='muted'>${valStr}</div></div>`; if (window.MathJax && MathJax.typesetPromise) MathJax.typesetPromise(); }
+          if (out) {
+            out.innerHTML = `<div class='row' style='justify-content:space-between; align-items:center;'>${latexHtml}<button id="calcCopy" class="btn-outline" style="font-size:.9rem; padding:.25rem .6rem;">نسخ القيمة</button></div><div class='muted'>${valStr}</div>`;
+            try { const btn = out.querySelector('#calcCopy'); if (btn && Number.isFinite(valNum)) btn.setAttribute('data-val', String(valNum)); } catch{}
+            if (window.MathJax && MathJax.typesetPromise) MathJax.typesetPromise();
+          }
           await renderCalcGraph(expr, { mode:'diff', at });
         } else {
           // integral
@@ -657,12 +667,17 @@
           if (pyodideReady){ F_latex = await window.pyodide.runPythonAsync(`integral_latex(${JSON.stringify(expr)})`); }
           const bounds = getCalcBounds();
           let areaStr = '';
+          let intVal = NaN;
           if (bounds){
             let val = NaN; try { if (pyodideReady) val = await window.pyodide.runPythonAsync(`integral_def_value(${JSON.stringify(expr)}, ${bounds[0]}, ${bounds[1]})`); } catch{}
-            if (Number.isFinite(val)) areaStr = (lang==='ar'? `قيمة التكامل من ${bounds[0]} إلى ${bounds[1]} ≈ ${val.toFixed(6)}` : `∫ from ${bounds[0]} to ${bounds[1]} ≈ ${val.toFixed(6)}`);
+            if (Number.isFinite(val)) { intVal = val; areaStr = (lang==='ar'? `قيمة التكامل من ${bounds[0]} إلى ${bounds[1]} ≈ ${val.toFixed(6)}` : `∫ from ${bounds[0]} to ${bounds[1]} ≈ ${val.toFixed(6)}`); }
           }
           const latexHtml = F_latex? `<div>\\(F(x) = ${F_latex}\\)</div>` : '';
-          if (out) { out.innerHTML = `<div>${latexHtml}<div class='muted'>${areaStr}</div></div>`; if (window.MathJax && MathJax.typesetPromise) MathJax.typesetPromise(); }
+          if (out) {
+            out.innerHTML = `<div class='row' style='justify-content:space-between; align-items:center;'>${latexHtml}<button id="calcCopy" class="btn-outline" style="font-size:.9rem; padding:.25rem .6rem;">نسخ القيمة</button></div><div class='muted'>${areaStr}</div>`;
+            try { const btn = out.querySelector('#calcCopy'); if (btn && Number.isFinite(intVal)) btn.setAttribute('data-val', String(intVal)); } catch{}
+            if (window.MathJax && MathJax.typesetPromise) MathJax.typesetPromise();
+          }
           await renderCalcGraph(expr, { mode:'int', bounds });
         }
       } catch(err){ if (out) out.innerHTML = `<p class='muted'>حدث خطأ أثناء الحساب</p>`; }
@@ -1162,6 +1177,27 @@
       } catch{}
       try {
         const run = document.getElementById('calcRun'); if (run) run.addEventListener('click', handleCalcRun);
+      } catch{}
+      try {
+        document.addEventListener('click', function(ev){
+          const t = ev.target;
+          const isEl = t && t.nodeType === 1; // ELEMENT_NODE
+          const btn = isEl && t.matches ? (t.matches('#calcCopy') ? t : (t.closest ? t.closest('#calcCopy') : null)) : null;
+          if (!btn) return;
+          try {
+            const prefer = btn.getAttribute('data-val');
+            let toCopy = '';
+            if (prefer && prefer.length) { toCopy = prefer; }
+            else {
+              const box = document.getElementById('calcResult');
+              if (!box) return;
+              const text = box.textContent || '';
+              const m = text.match(/([+\-]?[0-9]+(?:\.[0-9]+)?(?:e[+\-]?[0-9]+)?)(?!.*[0-9])/i);
+              toCopy = m ? m[1] : '';
+            }
+            if (toCopy) { navigator.clipboard.writeText(toCopy); btn.textContent = 'نُسِخت'; setTimeout(()=>{ btn.textContent='نسخ القيمة'; }, 1200); }
+          } catch{}
+        });
       } catch{}
       // mobile keyboard UX hooks
       setupKeyboardUX();
