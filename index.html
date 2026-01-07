@@ -178,9 +178,12 @@
     }
     /* === Graph mobile responsiveness === */
     #graph { height: 420px; }
+    /* Read-only solution graph under the answer */
+    #solutionGraph { width: 100%; height: 320px; }
     @media (max-width: 640px) {
       /* Make the graph fill a sensible portion of the viewport */
       #graph { height: clamp(260px, 50dvh, 520px) !important; }
+      #solutionGraph { height: clamp(220px, 42dvh, 460px) !important; }
       #graphCard .row { gap: 8px; }
       #graphCard .control { flex-wrap: wrap; }
       #graphCard input[type="range"] { width: 100%; }
@@ -831,8 +834,10 @@
         try {
           const a = getApproachValue();
           const aText = getApproachLabel();
-          const L = estimateLimit(expr, a);
-          res.innerHTML = `<p class='fade-in'><strong>${STR[lang].limitAs} ${aText}:</strong> ~ ${L.toFixed(6)}</p>`;
+          const L = (function(){ try { const f = compileExprFn(expr); return estimateLimitWithFn(f, a);} catch { return estimateLimit(expr, a);} })();
+          res.innerHTML = `<p class='fade-in'><strong>${STR[lang].limitAs} ${aText}:</strong> ~ ${L.toFixed(6)}</p><div id='solutionGraph' class='fade-in' style='margin-top:8px;'></div>`;
+          // Draw a compact, read-only solution graph beneath the answer
+          try { renderSolutionGraph(expr, a, L); } catch {}
         } catch(e) {
           res.innerHTML = `<div class='reaction pop-in'>😕</div><p class='fade-in'>${STR[lang].invalid}</p>`;
         }
@@ -1632,6 +1637,62 @@ def integral_latex(s):
       try {
         Plotly.react('graph', data, layout, { responsive: true, displaylogo: false, scrollZoom: true });
       } catch {}
+    }
+
+    // ====== Read-only compact graph for solution ======
+    async function renderSolutionGraph(expr, a, Lhint){
+      const target = document.getElementById('solutionGraph'); if (!target) return;
+      const isMobile = window.innerWidth <= 640;
+      // domain centered at a
+      const R = 2.0; const xmin = a - R, xmax = a + R;
+      const baseN = isMobile ? 220 : 320;
+      const len = Math.max(1, expr.length); const factor = Math.max(0.6, Math.min(1.0, 280/(len+80)));
+      const N = Math.round(baseN * factor);
+      let f; try { f = compileExprFn(expr); } catch { f = null; }
+      const xs = new Array(N); const ys = new Array(N);
+      let yMin = Infinity, yMax = -Infinity;
+      const addExt = (arr)=>{ for (const v of arr){ if (Number.isFinite(v)){ yMin = Math.min(yMin, v); yMax = Math.max(yMax, v); } } };
+      for (let i=0;i<N;i++){
+        const x = xmin + (i*(xmax-xmin))/(N-1); xs[i]=x;
+        try { ys[i] = f ? f(x) : evalAt(expr, x); } catch { ys[i] = NaN; }
+      }
+      addExt(ys);
+      let L = NaN; try { L = Number.isFinite(Lhint)?Lhint : (f? estimateLimitWithFn(f,a) : estimateLimit(expr,a)); } catch {}
+      if (Number.isFinite(L)) addExt([L]);
+      // derivative at a
+      let m = NaN; try { if (pyodideReady){ m = await window.pyodide.runPythonAsync(`deriv_slope(${JSON.stringify(expr)}, ${a})`); } } catch{}
+      if (!Number.isFinite(m)) { try { const h=1e-5; m = ((f?f(a+h):evalAt(expr,a+h)) - (f?f(a-h):evalAt(expr,a-h)))/(2*h); } catch{} }
+      let y0 = NaN; try { y0 = f?f(a):evalAt(expr,a); } catch{}
+      const curve = { x: xs, y: ys, mode: 'lines', name: (lang==='ar'? 'الدالة' : 'Function'), line: { color: '#5b7cff', width: 2 } };
+      const data = [curve];
+      if (Number.isFinite(L)) data.push({ x:[a], y:[L], mode:'markers', name:(lang==='ar'?'النهاية عند a':'Limit at a'), marker:{ color:'#a78bfa', size:9, symbol:'circle-open' }});
+      // limit line
+      if (Number.isFinite(L)) data.push({ x:[xmin,xmax], y:[L,L], mode:'lines', name:(lang==='ar'?'الحد L':'Limit L'), line:{ color:'#6b7280', width:1.5, dash:'dot' }});
+      // tangent line
+      if (Number.isFinite(m) && Number.isFinite(y0)){
+        const txs=[xmin,xmax]; const tys=txs.map(x=> y0 + m*(x-a));
+        data.push({ x:txs, y:tys, mode:'lines', name:(lang==='ar'?'خط المماس':'Tangent'), line:{ color:'#10b981', width:2, dash:'dash' }});
+        data.push({ x:[a], y:[y0], mode:'markers', name:(lang==='ar'?'نقطة المماس':'Tangent point'), marker:{ color:'#10b981', size:8 }});
+        addExt(tys); addExt([y0]);
+      }
+      // symmetric integral shading around a
+      const eps = 0.6; const xA = Math.max(xmin, a-eps), xB = Math.min(xmax, a+eps);
+      const n2 = Math.max(40, Math.round(N*(xB-xA)/(xmax-xmin)));
+      const xi=[], yi=[]; for (let i=0;i<n2;i++){ const x = xA + (i*(xB-xA))/(n2-1); xi.push(x); try{ yi.push(f?f(x):evalAt(expr,x)); } catch { yi.push(NaN); } }
+      data.push({ x: xi.concat([xB,xA]), y: yi.concat([0,0]), type:'scatter', fill:'toself', name:(lang==='ar'?'مساحة حول a':'Area around a'), line:{ color:'rgba(167,139,250,.6)' }, fillcolor:'rgba(167,139,250,.25)' });
+      addExt(yi);
+      if (!(yMin<yMax)) { yMin=-1; yMax=1; }
+      const padY = Math.max(0.1, (yMax-yMin)*0.08);
+      const fontColor = (theme==='light')? '#0f172a' : '#e5e7eb';
+      const layout = {
+        margin: isMobile? {l:24,r:10,t:6,b:30} : {l:36,r:18,t:10,b:36},
+        paper_bgcolor:'rgba(0,0,0,0)', plot_bgcolor:'rgba(0,0,0,0)', font:{ color: fontColor, size: isMobile?12:13 },
+        xaxis:{ title:(lang==='ar'?'المتغير x':'x'), range:[xmin,xmax], gridcolor:'rgba(255,255,255,0.12)', zeroline:true, zerolinecolor:'rgba(255,255,255,0.2)' },
+        yaxis:{ title:'y', range:[yMin-padY, yMax+padY], gridcolor:'rgba(255,255,255,0.12)', zeroline:true, zerolinecolor:'rgba(255,255,255,0.2)' },
+        legend:{ orientation: isMobile?'v':'h' },
+        shapes:[ { type:'line', x0:a, x1:a, y0:yMin-padY, y1:yMax+padY, line:{ color:'#6b7280', width:1, dash:'dot' } } ]
+      };
+      try { Plotly.react(target, data, layout, { responsive:true, displayModeBar:false }); } catch{}
     }
 
     // Debounced renderer to avoid excessive redraws during typing/sliding
