@@ -238,6 +238,7 @@
         <button class="seg-btn" data-mode="steps">عرض الخطوات</button>
         <button class="seg-btn" data-mode="game">وضع التدريب</button>
         <button class="seg-btn" data-mode="graph">التمثيل البياني التفاعلي</button>
+          <button class="seg-btn" data-mode="calc">تفاضل/تكامل</button>
       </div>
     </div>
     <div class="glass-card">
@@ -354,6 +355,7 @@
           <input id="x0Text" class="textfield" placeholder="ادخل نقطة x0 (افتراضيًا قيمة a)" style="max-width:300px;">
         </div>
       </div>
+      
       <div class="control" style="margin-top:10px; gap:8px; flex-wrap:wrap;">
         <button class="btn-outline" id="zoomIn">Zoom In</button>
         <button class="btn-outline" id="zoomOut">Zoom Out</button>
@@ -361,6 +363,41 @@
         <span class="muted" id="areaLabel" style="margin-inline-start:auto;">المساحة ~ —</span>
       </div>
       <div class="muted" id="sympyStatus" style="margin-top:6px;">SymPy: جاري التحميل…</div>
+    </div>
+
+    <!-- بطاقة وضع التفاضل/التكامل المستقل (خارج بطاقة الرسم) -->
+    <div id="calcCard" class="glass-card" style="display:none; margin-top:16px;">
+      <h3>🔎 التفاضل والتكامل</h3>
+      <div class="row" style="gap:12px; align-items:center; flex-wrap:wrap;">
+        <div class="seg" id="calcModeSeg">
+          <button class="seg-btn active" data-calc="diff">تفاضل</button>
+          <button class="seg-btn" data-calc="int">تكامل</button>
+        </div>
+        <div class="spacer"></div>
+      </div>
+      <div class="row" style="margin-top:8px; gap:10px; align-items:flex-end; flex-wrap:wrap;">
+        <div style="flex:2 1 360px;">
+          <label class="muted">التعبير f(x)</label>
+          <math-field id="calcMath" style="width:100%;"></math-field>
+          <input id="calcText" type="text" class="input" style="width:100%; display:none;" placeholder="مثال: sin(x)/x أو (x^2+1)" />
+        </div>
+        <div id="calcAtRow" style="flex:1 1 200px;">
+          <label class="muted">عند x = a (اختياري)</label>
+          <input id="calcAt" type="text" class="input" placeholder="مثال: 0 أو pi/4" />
+        </div>
+        <div id="calcBoundsRow" style="flex:1 1 320px; display:none;">
+          <label class="muted">حدود التكامل [a, b] (اختياري)</label>
+          <div class="row" style="gap:8px;">
+            <input id="calcA" type="text" class="input" placeholder="a" style="flex:1 1 120px;" />
+            <input id="calcB" type="text" class="input" placeholder="b" style="flex:1 1 120px;" />
+          </div>
+        </div>
+        <div>
+          <button id="calcRun" class="btn primary">تحقّق</button>
+        </div>
+      </div>
+      <div id="calcResult" class="glass-card" style="margin-top:10px;"></div>
+      <div id="calcGraph" style="width:100%; height:320px; margin-top:10px;"></div>
     </div>
   </div>
 
@@ -512,7 +549,11 @@
       document.getElementById('check').textContent = s.check;
       const seg = document.getElementById('modeSeg');
       const btns = seg.querySelectorAll('.seg-btn');
-      btns[0].textContent = s.solve; btns[1].textContent = s.steps; btns[2].textContent = s.game; if (btns[3]) btns[3].textContent = s.graph;
+      if (btns[0]) btns[0].textContent = s.solve;
+      if (btns[1]) btns[1].textContent = s.steps;
+      if (btns[2]) btns[2].textContent = s.game;
+      if (btns[3]) btns[3].textContent = s.graph;
+      if (btns[4]) btns[4].textContent = (lang==='ar'? 'تفاضل/تكامل' : 'Calculus');
       // Graphing labels
       const gt = document.getElementById('graphTitle'); if (gt) gt.textContent = (lang==='ar'? '📈 التمثيل البياني التفاعلي' : '📈 Interactive Graphing');
       const gd = document.getElementById('graphDesc'); if (gd) gd.textContent = (lang==='ar'? 'يعرض المنحنى ديناميكيًا ويُبرز النهاية عند x→0' : 'Displays the curve dynamically and highlights the limit at x→0');
@@ -573,6 +614,117 @@
                  .replace(/cos\s*\(/g, 'Math.cos(')
                  .replace(/tan\s*\(/g, 'Math.tan(');
       return expr;
+    }
+
+    // مدخلات وضع التفاضل/التكامل
+    function getCalcExpr(){
+      const mf = document.getElementById('calcMath');
+      const tf = document.getElementById('calcText');
+      let v = '';
+      try {
+        const mfVisible = mf && mf.style.display !== 'none';
+        if (mfVisible && mf.getValue) v = String(mf.getValue('latex')||'');
+        else v = String(tf ? tf.value||'' : '');
+      } catch { v = String(tf ? tf.value||'' : ''); }
+      v = String(v||'').trim();
+      if (/\\[A-Za-z]+/.test(v)) { try { v = latexToJSExprCached(v).replace(/Math\./g, ''); } catch {} }
+      return v;
+    }
+    function getCalcMode(){
+      const seg = document.getElementById('calcModeSeg'); if (!seg) return 'diff';
+      const a = seg.querySelector('.seg-btn.active');
+      return a ? a.dataset.calc : 'diff';
+    }
+    function getCalcAt(){
+      const t = document.getElementById('calcAt'); if (!t) return null;
+      const s = String(t.value||'').trim(); if (!s) return null;
+      const v = evalLatexNumeric(approachTextToLatex(s));
+      return Number.isFinite(v)? v : null;
+    }
+    function getCalcBounds(){
+      const a = document.getElementById('calcA'); const b = document.getElementById('calcB');
+      if (!a || !b) return null;
+      const sa = String(a.value||'').trim(); const sb = String(b.value||'').trim();
+      if (!sa || !sb) return null;
+      const va = evalLatexNumeric(approachTextToLatex(sa));
+      const vb = evalLatexNumeric(approachTextToLatex(sb));
+      if (!Number.isFinite(va) || !Number.isFinite(vb)) return null;
+      return [va, vb];
+    }
+
+    async function handleCalcRun(){
+      const out = document.getElementById('calcResult'); if (out) out.innerHTML='';
+      const expr = getCalcExpr();
+      const safe = sanitizeExpr(expr);
+      if (!safe) { if (out) out.innerHTML = `<p class='muted'>إدخال غير صالح للتفاضل/التكامل</p>`; return; }
+      const cm = getCalcMode();
+      try {
+        if (cm === 'diff'){
+          let latexD = '';
+          if (pyodideReady){ latexD = await window.pyodide.runPythonAsync(`diff_latex(${JSON.stringify(expr)})`); }
+          const at = getCalcAt();
+          let valStr = '';
+          if (at!=null){
+            let val = NaN; try { val = pyodideReady? await window.pyodide.runPythonAsync(`deriv_slope(${JSON.stringify(expr)}, ${at})`) : NaN; } catch{}
+            if (!Number.isFinite(val)) { try { const h=1e-5; const f=compileExprFn(expr); val = (f(at+h)-f(at-h))/(2*h);} catch{} }
+            if (Number.isFinite(val)) valStr = (lang==='ar'? `وقيمة المشتقة عند x=${at} هي ${val.toFixed(6)}` : `Derivative at x=${at} is ${val.toFixed(6)}`);
+          }
+          const latexHtml = latexD? `<div>\\(\\dfrac{d}{dx}[f(x)] = ${latexD}\\)</div>` : '';
+          if (out) { out.innerHTML = `<div>${latexHtml}<div class='muted'>${valStr}</div></div>`; if (window.MathJax && MathJax.typesetPromise) MathJax.typesetPromise(); }
+          await renderCalcGraph(expr, { mode:'diff', at });
+        } else {
+          // integral
+          let F_latex = '';
+          if (pyodideReady){ F_latex = await window.pyodide.runPythonAsync(`integral_latex(${JSON.stringify(expr)})`); }
+          const bounds = getCalcBounds();
+          let areaStr = '';
+          if (bounds){
+            let val = NaN; try { if (pyodideReady) val = await window.pyodide.runPythonAsync(`integral_def_value(${JSON.stringify(expr)}, ${bounds[0]}, ${bounds[1]})`); } catch{}
+            if (Number.isFinite(val)) areaStr = (lang==='ar'? `قيمة التكامل من ${bounds[0]} إلى ${bounds[1]} ≈ ${val.toFixed(6)}` : `∫ from ${bounds[0]} to ${bounds[1]} ≈ ${val.toFixed(6)}`);
+          }
+          const latexHtml = F_latex? `<div>\\(F(x) = ${F_latex}\\)</div>` : '';
+          if (out) { out.innerHTML = `<div>${latexHtml}<div class='muted'>${areaStr}</div></div>`; if (window.MathJax && MathJax.typesetPromise) MathJax.typesetPromise(); }
+          await renderCalcGraph(expr, { mode:'int', bounds });
+        }
+      } catch(err){ if (out) out.innerHTML = `<p class='muted'>حدث خطأ أثناء الحساب</p>`; }
+    }
+
+    async function renderCalcGraph(expr, opts){
+      const target = document.getElementById('calcGraph'); if (!target) return;
+      const isMobile = window.innerWidth <= 640;
+      const a = 0; const R = 2.0; const xmin=a-R, xmax=a+R;
+      let f; try { f = compileExprFn(expr); } catch { f=null; }
+      const N = isMobile? 380 : 700;
+      const xs = new Array(N), ys=new Array(N);
+      let yMin=Infinity, yMax=-Infinity;
+      const addExt=(arr)=>{ for(const v of arr){ if(Number.isFinite(v)){ yMin=Math.min(yMin,v); yMax=Math.max(yMax,v);} } };
+      for(let i=0;i<N;i++){ const x = xmin + (i*(xmax-xmin))/(N-1); xs[i]=x; try{ ys[i]= f?f(x):evalAt(expr,x);} catch{ ys[i]=NaN; } }
+      addExt(ys);
+      const data=[ { x:xs, y:ys, mode:'lines', name:(lang==='ar'?'الدالة':'Function'), line:{ color:'#5b7cff', width:2 } } ];
+      if (opts && opts.mode==='diff' && opts.at!=null){
+        let m=NaN, y0=NaN; try{ y0 = f?f(opts.at):evalAt(expr, opts.at);} catch{}
+        try{ if(pyodideReady) m = await window.pyodide.runPythonAsync(`deriv_slope(${JSON.stringify(expr)}, ${opts.at})`); } catch{}
+        if (!Number.isFinite(m)) { try { const h=1e-5; m = ((f?f(opts.at+1e-5):evalAt(expr,opts.at+1e-5)) - (f?f(opts.at-1e-5):evalAt(expr,opts.at-1e-5)))/(2e-5);} catch{} }
+        if (Number.isFinite(m) && Number.isFinite(y0)){
+          const tx=[xmin,xmax]; const ty=tx.map(x=> y0 + m*(x-opts.at));
+          data.push({ x:tx, y:ty, mode:'lines', name:(lang==='ar'?'مماس':'Tangent'), line:{ color:'#10b981', width:2, dash:'dash' } });
+          data.push({ x:[opts.at], y:[y0], mode:'markers', name:(lang==='ar'?'نقطة':'Point'), marker:{ color:'#10b981', size:8 } });
+          addExt(ty); addExt([y0]);
+        }
+      }
+      if (opts && opts.mode==='int' && opts.bounds){
+        const a0 = Math.min(opts.bounds[0], opts.bounds[1]);
+        const b0 = Math.max(opts.bounds[0], opts.bounds[1]);
+        const xi=[], yi=[]; const n2 = Math.max(40, Math.round(N*(b0-a0)/(xmax-xmin)));
+        for(let i=0;i<n2;i++){ const x=a0 + (i*(b0-a0))/(n2-1); xi.push(x); try{ yi.push(f?f(x):evalAt(expr,x)); } catch{ yi.push(NaN); } }
+        data.push({ x: xi.concat([b0,a0]), y: yi.concat([0,0]), type:'scatter', fill:'toself', name:(lang==='ar'?'مساحة':'Area'), line:{ color:'rgba(167,139,250,.6)' }, fillcolor:'rgba(167,139,250,.25)' });
+        addExt(yi);
+      }
+      if (!(yMin<yMax)) { yMin=-1; yMax=1; }
+      const padY = Math.max(0.1, (yMax-yMin)*0.08);
+      const fontColor = (theme==='light')? '#0f172a' : '#e5e7eb';
+      const layout={ margin:isMobile?{l:24,r:10,t:6,b:30}:{l:36,r:18,t:10,b:36}, paper_bgcolor:'rgba(0,0,0,0)', plot_bgcolor:'rgba(0,0,0,0)', font:{ color:fontColor, size:isMobile?12:13 }, xaxis:{ title:(lang==='ar'?'x':'x'), range:[xmin,xmax] }, yaxis:{ title:'y', range:[yMin-padY,yMax+padY] }, showlegend:true };
+      try{ Plotly.react(target, data, layout, { responsive:true, displaylogo:false, displayModeBar:false }); } catch{}
     }
 
     // احصل على قيمة "التعبير" من الحقل النّصي أو الرياضي وحوّل LaTeX إلى نص إن لزم
@@ -898,6 +1050,7 @@
       document.getElementById('hint').style.display = 'none';
       document.getElementById('hud').style.display = (mode==='game')? '' : 'none';
       document.getElementById('graphCard').style.display = (mode==='graph')? '' : 'none';
+      const calcCard = document.getElementById('calcCard'); if (calcCard) calcCard.style.display = (mode==='calc')? '' : 'none';
       // ضع خانة الإجابة تحت زر التلميح في وضع التدريب
       const ansCont = document.getElementById('ansContainer');
       if (mode==='game') {
@@ -917,9 +1070,25 @@
         try { renderGraph(); } catch {}
         if (ansCont) ansCont.style.display = 'none';
         try { const tg = document.getElementById('trainGraph'); if (tg) tg.style.display = 'none'; } catch{}
+      } else if (mode==='calc') {
+        // إخفاء عناصر طور ماكلورين لجعل الوضع منفصل تمامًا
+        try {
+          const exprField = document.getElementById('exprFieldContainer'); if (exprField) exprField.style.display = 'none';
+          const pointField = document.getElementById('point-field-container'); if (pointField) pointField.style.display = 'none';
+          const checkBtn = document.getElementById('check'); if (checkBtn) checkBtn.style.display = 'none';
+          const qd = document.getElementById('questionDisplay'); if (qd) qd.style.display = 'none';
+          if (ansCont) ansCont.style.display = 'none';
+          const tg = document.getElementById('trainGraph'); if (tg) tg.style.display = 'none';
+        } catch{}
       } else {
         if (ansCont) ansCont.style.display = 'none';
         try { const tg = document.getElementById('trainGraph'); if (tg) tg.style.display = 'none'; } catch{}
+        // إعادة إظهار العناصر إن كانت مخفية من وضع calc
+        try {
+          const exprField = document.getElementById('exprFieldContainer'); if (exprField) exprField.style.display = '';
+          const pointField = document.getElementById('point-field-container'); if (pointField) pointField.style.display = '';
+          const checkBtn = document.getElementById('check'); if (checkBtn) checkBtn.style.display = '';
+        } catch{}
       }
     });
 
@@ -956,6 +1125,22 @@
       // Bind graph controls and load SymPy
       bindGraphControls();
       initSymPy();
+      // ربط وضع التفاضل/التكامل
+      try {
+        const seg = document.getElementById('calcModeSeg');
+        if (seg) seg.addEventListener('click', function(e){
+          const b = e.target.closest('.seg-btn'); if (!b) return;
+          seg.querySelectorAll('.seg-btn').forEach(x=>x.classList.toggle('active', x===b));
+          const mode = b.dataset.calc;
+          const atRow = document.getElementById('calcAtRow');
+          const bRow = document.getElementById('calcBoundsRow');
+          if (mode==='diff') { if (atRow) atRow.style.display=''; if (bRow) bRow.style.display='none'; }
+          else { if (atRow) atRow.style.display='none'; if (bRow) bRow.style.display=''; }
+        });
+      } catch{}
+      try {
+        const run = document.getElementById('calcRun'); if (run) run.addEventListener('click', handleCalcRun);
+      } catch{}
       // mobile keyboard UX hooks
       setupKeyboardUX();
       setupExprUX();
@@ -1478,6 +1663,14 @@ def integral_latex(s):
     f = parse_expr(s)
     F = sp.integrate(f, x)
     return sp.latex(F)
+    def diff_latex(s):
+      f = parse_expr(s)
+      d = sp.diff(f, x)
+      return sp.latex(d)
+    def integral_def_value(s, a, b):
+      f = parse_expr(s)
+      val = sp.integrate(f, (x, a, b))
+      return float(sp.N(val))
         `);
         window.pyodide = pyo;
         pyodideReady = true;
