@@ -1513,17 +1513,21 @@ def integral_latex(s):
       try { f = compileExprFn(expr); } catch { f = null; }
       const xs = new Array(N);
       const ys = new Array(N);
+      let yMin = Infinity, yMax = -Infinity;
+      const addExtentFrom = (arr)=>{ for (const v of arr){ if (Number.isFinite(v)){ if (v < yMin) yMin = v; if (v > yMax) yMax = v; } } };
       for (let i=0;i<N;i++){
         const x = xmin + (i*(xmax-xmin))/(N-1);
         xs[i] = x;
         try { ys[i] = f ? f(x) : evalAt(expr, x); } catch { ys[i] = NaN; }
       }
+      addExtentFrom(ys);
       const curve = { x: xs, y: ys, mode: 'lines', name: (lang==='ar'? 'الدالة' : 'Function'), line: { color: '#5b7cff', width: 2 } };
       const data = [curve];
       let Lval = NaN;
       try {
         if (f) Lval = estimateLimitWithFn(f, 0); else Lval = estimateLimit(expr, 0);
         data.push({ x: [0], y: [Lval], mode: 'markers', name: (lang==='ar'? 'النهاية عند 0' : 'Limit at 0'), marker: { color: '#a78bfa', size: 10, symbol: 'circle-open' } });
+        if (Number.isFinite(Lval)) addExtentFrom([Lval]);
       } catch {}
             // optional horizontal limit line
             if (showL && Number.isFinite(Lval)){
@@ -1546,6 +1550,7 @@ def integral_latex(s):
                 }
                 data.push({ x: xi, y: yu, mode: 'lines', name: (lang==='ar'? '+سندة' : '+upper bound'), line: { color: '#22c55e', width: 1.5 } });
                 data.push({ x: xi, y: yl, mode: 'lines', name: (lang==='ar'? '-سندة' : '-lower bound'), line: { color: '#ef4444', width: 1.5 } });
+                addExtentFrom(yu); addExtentFrom(yl);
               }
             }
       const areaLbl = document.getElementById('areaLabel'); if (areaLbl) areaLbl.textContent = (lang==='ar'? 'المساحة ~ —' : 'Area ~ —');
@@ -1560,6 +1565,7 @@ def integral_latex(s):
           try { yi.push(f ? f(x) : evalAt(expr, x)); } catch { yi.push(NaN); }
         }
         data.push({ x: xi.concat([xB,xA]), y: yi.concat([0,0]), fill: 'toself', type: 'scatter', name: (lang==='ar'? 'مساحة قرب 0' : 'Area near 0'), line: { color: 'rgba(167,139,250,.6)' }, fillcolor: 'rgba(167,139,250,.25)' });
+        addExtentFrom(yi);
         try {
           if (pyodideReady){
             const val = await window.pyodide.runPythonAsync(`integral_value_eps(${JSON.stringify(expr)}, ${eps})`);
@@ -1586,17 +1592,29 @@ def integral_latex(s):
             const tys = txs.map(x=> y0 + m*(x - x0));
             data.push({ x: txs, y: tys, mode: 'lines', name: (lang==='ar'? 'خط المماس' : 'Tangent line'), line: { color: '#10b981', width: 2, dash: 'dash' } });
             data.push({ x: [x0], y: [y0], mode: 'markers', name: (lang==='ar'? 'نقطة المماس' : 'Tangent point'), marker: { color: '#10b981', size: 9 } });
+            addExtentFrom(tys); addExtentFrom([y0]);
           }
         }
       }
       const isMobile = window.innerWidth <= 640;
+      if (!(yMin < yMax)) { yMin = -1; yMax = 1; }
+      const padY = Math.max(0.1, (yMax - yMin) * 0.08);
+      const fontColor = (theme === 'light') ? '#0f172a' : '#e5e7eb';
+      const annotations = [];
+      if (Number.isFinite(Lval)) {
+        annotations.push({ x: 0, y: Lval, text: (lang==='ar'? `L ≈ ${Lval.toFixed(4)}` : `L ≈ ${Lval.toFixed(4)}`),
+          xanchor: 'left', yanchor: 'bottom', showarrow: true, arrowhead: 2, ax: 16, ay: -16, font: { color: fontColor, size: isMobile?11:12 } });
+      }
       const layout = {
         margin: isMobile ? { l: 28, r: 14, t: 6, b: 34 } : { l: 40, r: 20, t: 10, b: 40 },
         paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
-        xaxis: { range: [xmin, xmax], gridcolor: 'rgba(255,255,255,0.12)' },
-        yaxis: { gridcolor: 'rgba(255,255,255,0.12)' },
+        font: { color: fontColor, size: isMobile?12:14 },
+        xaxis: { title: (lang==='ar'? 'المتغير x' : 'x'), range: [xmin, xmax], gridcolor: 'rgba(255,255,255,0.12)', zeroline: true, zerolinecolor: 'rgba(255,255,255,0.2)' },
+        yaxis: { title: 'y', range: [yMin - padY, yMax + padY], gridcolor: 'rgba(255,255,255,0.12)', zeroline: true, zerolinecolor: 'rgba(255,255,255,0.2)' },
         showlegend: true,
-        legend: isMobile ? { orientation: 'v', x: 0, y: 1.02 } : { orientation: 'h' }
+        legend: isMobile ? { orientation: 'v', x: 0, y: 1.02 } : { orientation: 'h' },
+        annotations,
+        shapes: [ { type: 'line', x0: 0, x1: 0, y0: yMin - padY, y1: yMax + padY, line: { color: '#6b7280', width: 1, dash: 'dot' } } ]
       };
       // Ensure the graph height suits the current viewport, then render responsively
       fitGraphHeight();
