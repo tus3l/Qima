@@ -189,6 +189,10 @@
   <!-- MathLive for WYSIWYG math input -->
   <link rel="stylesheet" href="https://unpkg.com/mathlive/dist/mathlive.min.css">
   <script type="module">import 'https://unpkg.com/mathlive?module';</script>
+  <!-- Plotly for interactive graphing -->
+  <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
+  <!-- Pyodide for in-browser Python + SymPy -->
+  <script src="https://cdn.jsdelivr.net/pyodide/v0.24.1/full/pyodide.js"></script>
 </head>
 <body>
   <div class="bg"><span class="blob b1"></span><span class="blob b2"></span><span class="blob b3"></span></div>
@@ -205,6 +209,7 @@
         <button class="seg-btn active" data-mode="solve">احسب النهاية</button>
         <button class="seg-btn" data-mode="steps">عرض الخطوات</button>
         <button class="seg-btn" data-mode="game">وضع التدريب</button>
+        <button class="seg-btn" data-mode="graph">التمثيل البياني التفاعلي</button>
       </div>
     </div>
     <div class="glass-card">
@@ -296,6 +301,37 @@
     </div>
     <br />
     <div id="guide" class="glass-card" style="white-space:pre-wrap"></div>
+    <!-- Interactive Graphing Card -->
+    <div id="graphCard" class="glass-card" style="display:none; margin-top:16px;">
+      <h3 id="graphTitle">📈 التمثيل البياني التفاعلي</h3>
+      <div class="muted" id="graphDesc">يعرض المنحنى ديناميكيًا ويُبرز النهاية عند x→0</div>
+      <div id="graph" style="width:100%; height:420px;"></div>
+      <div class="row" style="margin-top:10px;">
+        <div class="control" style="gap:10px; align-items:center;">
+          <label id="graphOptsLabel">الخيارات</label>
+          <label style="display:flex; align-items:center; gap:6px;"><input type="checkbox" id="optIntegral"> <span id="optIntegralLabel">الحل بالتكامل (تظليل المساحة قرب 0)</span></label>
+          <label style="display:flex; align-items:center; gap:6px;"><input type="checkbox" id="optDerivative"> <span id="optDerivativeLabel">الحل بالتفاضل (خط المماس عند النقطة)</span></label>
+          <label style="display:flex; align-items:center; gap:6px;"><input type="checkbox" id="optSqueeze"> <span id="optSqueezeLabel">إظهار السندة ±m(x)</span></label>
+          <label style="display:flex; align-items:center; gap:6px;"><input type="checkbox" id="optLimitLine"> <span id="optLimitLineLabel">إظهار خط L</span></label>
+        </div>
+        <div class="control" style="gap:10px; align-items:center;">
+          <label id="epsLabel">نطاق التكامل (ε)</label>
+          <input id="eps" type="range" min="0.05" max="1.0" step="0.05" value="0.5" style="width:220px;">
+          <span class="muted" id="epsVal">ε=0.50</span>
+        </div>
+        <div class="control" style="gap:10px; align-items:center;">
+          <label id="x0Label">نقطة المماس</label>
+          <input id="x0Text" class="textfield" placeholder="ادخل نقطة x0 (افتراضيًا قيمة a)" style="max-width:300px;">
+        </div>
+      </div>
+      <div class="control" style="margin-top:10px; gap:8px; flex-wrap:wrap;">
+        <button class="btn-outline" id="zoomIn">Zoom In</button>
+        <button class="btn-outline" id="zoomOut">Zoom Out</button>
+        <button class="btn-outline" id="resetView">Reset View</button>
+        <span class="muted" id="areaLabel" style="margin-inline-start:auto;">المساحة ~ —</span>
+      </div>
+      <div class="muted" id="sympyStatus" style="margin-top:6px;">SymPy: جاري التحميل…</div>
+    </div>
   </div>
 
   <!-- يفضل استخدام mp3، مع بديل wav إذا لم يتوفر -->
@@ -377,7 +413,7 @@
         check: 'تحقق',
         orderLabel: 'رتبة السلسلة',
         orderVal: (n)=>`n=${n}`,
-        solve: 'احسب النهاية', steps: 'عرض الخطوات', game: 'وضع التدريب',
+        solve: 'احسب النهاية', steps: 'عرض الخطوات', game: 'وضع التدريب', graph: 'التمثيل البياني التفاعلي',
         invalid: 'إدخال غير صالح. استخدم فقط sin وcos وtan والمتغير x.',
         success: 'عمل رائع! الإجابة صحيحة', fail: 'ليست صحيحة — حاول مرة أخرى',
         copy: '📋 نسخ',
@@ -406,7 +442,7 @@
         check: 'Check',
         orderLabel: 'Series order',
         orderVal: (n)=>`n=${n}`,
-        solve: 'Quick Solve', steps: 'Step-by-Step', game: 'Training Mode',
+        solve: 'Quick Solve', steps: 'Step-by-Step', game: 'Training Mode', graph: 'Interactive Graphing',
         invalid: 'Invalid input. Use only sin, cos, tan and variable x.',
         success: 'Great job! Correct answer', fail: 'Not correct — try again',
         copy: '📋 Copy',
@@ -446,7 +482,22 @@
       document.getElementById('check').textContent = s.check;
       const seg = document.getElementById('modeSeg');
       const btns = seg.querySelectorAll('.seg-btn');
-      btns[0].textContent = s.solve; btns[1].textContent = s.steps; btns[2].textContent = s.game;
+      btns[0].textContent = s.solve; btns[1].textContent = s.steps; btns[2].textContent = s.game; if (btns[3]) btns[3].textContent = s.graph;
+      // Graphing labels
+      const gt = document.getElementById('graphTitle'); if (gt) gt.textContent = (lang==='ar'? '📈 التمثيل البياني التفاعلي' : '📈 Interactive Graphing');
+      const gd = document.getElementById('graphDesc'); if (gd) gd.textContent = (lang==='ar'? 'يعرض المنحنى ديناميكيًا ويُبرز النهاية عند x→0' : 'Displays the curve dynamically and highlights the limit at x→0');
+      const gol = document.getElementById('graphOptsLabel'); if (gol) gol.textContent = (lang==='ar'? 'الخيارات' : 'Options');
+      const il = document.getElementById('optIntegralLabel'); if (il) il.textContent = (lang==='ar'? 'الحل بالتكامل (تظليل المساحة قرب 0)' : 'Integral solution (shade area near 0)');
+      const dl = document.getElementById('optDerivativeLabel'); if (dl) dl.textContent = (lang==='ar'? 'الحل بالتفاضل (خط المماس عند النقطة)' : 'Differential solution (tangent line at point)');
+      const sl = document.getElementById('optSqueezeLabel'); if (sl) sl.textContent = (lang==='ar'? 'إظهار السندة ±m(x)' : 'Show squeeze ±m(x)');
+      const ll = document.getElementById('optLimitLineLabel'); if (ll) ll.textContent = (lang==='ar'? 'إظهار خط L' : 'Show limit line L');
+      const elb = document.getElementById('epsLabel'); if (elb) elb.textContent = (lang==='ar'? 'نطاق التكامل (ε)' : 'Integral range (ε)');
+      const xl = document.getElementById('x0Label'); if (xl) xl.textContent = (lang==='ar'? 'نقطة المماس' : 'Tangent point');
+      const x0t = document.getElementById('x0Text'); if (x0t) x0t.setAttribute('placeholder', (lang==='ar'? 'ادخل نقطة x0 (افتراضيًا قيمة a)' : 'Enter x0 (defaults to a)'));
+      const z1 = document.getElementById('zoomIn'); if (z1) z1.textContent = 'Zoom In';
+      const z2 = document.getElementById('zoomOut'); if (z2) z2.textContent = 'Zoom Out';
+      const zr = document.getElementById('resetView'); if (zr) zr.textContent = (lang==='ar'? 'إعادة الضبط' : 'Reset View');
+      const al = document.getElementById('areaLabel'); if (al) al.textContent = (lang==='ar'? 'المساحة ~ —' : 'Area ~ —');
       document.getElementById('guide').textContent = s.guide;
       document.getElementById('orderLabel').textContent = s.orderLabel;
       const pointL = document.getElementById('pointLabel'); if (pointL && s.pointLabel) pointL.textContent = s.pointLabel;
@@ -793,6 +844,7 @@
       document.getElementById('gameToolbar').style.display = (mode==='game')? '' : 'none';
       document.getElementById('hint').style.display = 'none';
       document.getElementById('hud').style.display = (mode==='game')? '' : 'none';
+      document.getElementById('graphCard').style.display = (mode==='graph')? '' : 'none';
       // ضع خانة الإجابة تحت زر التلميح في وضع التدريب
       const ansCont = document.getElementById('ansContainer');
       if (mode==='game') {
@@ -805,6 +857,10 @@
         } catch{}
         // show the tip on first entry to game mode
         try { const seen = localStorage.getItem('menuTipSeen'); if (!seen) { showMenuTip(); setTimeout(()=>hideMenuTip(true), 4500); } } catch{}
+      } else if (mode==='graph') {
+        try { const x0t = document.getElementById('x0Text'); if (x0t && !x0t.value) x0t.value = String(getApproachValue()); } catch {}
+        try { renderGraph(); } catch {}
+        if (ansCont) ansCont.style.display = 'none';
       } else {
         if (ansCont) ansCont.style.display = 'none';
       }
@@ -827,6 +883,7 @@
       document.getElementById('gameToolbar').style.display = 'none';
       document.getElementById('hint').style.display = 'none';
       const ansCont = document.getElementById('ansContainer'); if (ansCont) ansCont.style.display = 'none';
+      document.getElementById('graphCard').style.display = 'none';
       // order slider change
       document.getElementById('order').addEventListener('input', ()=>{
         const n = parseInt(document.getElementById('order').value);
@@ -839,6 +896,9 @@
       try { const pm = document.getElementById('pointMath'); if (pm) pm.addEventListener('input', updateApproachHUD); } catch{}
       try { const pt = document.getElementById('pointText'); if (pt) pt.addEventListener('input', updateApproachHUD); } catch{}
       updateApproachHUD();
+      // Bind graph controls and load SymPy
+      bindGraphControls();
+      initSymPy();
       // mobile keyboard UX hooks
       setupKeyboardUX();
       setupExprUX();
@@ -1306,6 +1366,172 @@
         });
       }
     })();
+
+    // ====== Interactive Graphing with Plotly + SymPy (via Pyodide) ======
+    let pyodideReady = false;
+    async function initSymPy(){
+      try {
+        const status = document.getElementById('sympyStatus'); if (status) status.textContent = (lang==='ar'? 'SymPy: جاري التحميل…' : 'SymPy: loading…');
+        // Important: indexURL must point to the /full/ directory matching the script src
+        const pyo = await loadPyodide({ indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.24.1/full/' });
+        await pyo.loadPackage(['sympy']);
+        await pyo.runPythonAsync(`
+import sympy as sp
+x = sp.symbols('x')
+def parse_expr(s):
+    return sp.sympify(s, locals={'x': x, 'sin': sp.sin, 'cos': sp.cos, 'tan': sp.tan})
+def deriv_slope(s, x0):
+    f = parse_expr(s)
+    df = sp.diff(f, x)
+    return float(sp.N(df.subs({x: x0})))
+def integral_value_eps(s, eps):
+    f = parse_expr(s)
+    val = sp.integrate(f, (x, 0, eps))
+    return float(sp.N(val))
+def integral_latex(s):
+    f = parse_expr(s)
+    F = sp.integrate(f, x)
+    return sp.latex(F)
+        `);
+        window.pyodide = pyo;
+        pyodideReady = true;
+        if (status) status.textContent = (lang==='ar'? 'SymPy: جاهز' : 'SymPy: ready');
+      } catch(e){
+        pyodideReady = false;
+        const status = document.getElementById('sympyStatus'); if (status) status.textContent = (lang==='ar'? 'SymPy: تعذّر التحميل (سيتم استخدام تقريبات عددية)' : 'SymPy: failed to load (using numeric fallbacks)');
+      }
+    }
+
+    function bindGraphControls(){
+      try {
+        const eps = document.getElementById('eps'); const epsVal = document.getElementById('epsVal');
+        if (eps) eps.addEventListener('input', ()=>{ const v = parseFloat(eps.value||'0.5'); epsVal.textContent = `ε=${v.toFixed(2)}`; if (mode==='graph') renderGraph(); });
+        const oi = document.getElementById('optIntegral'); if (oi) oi.addEventListener('change', ()=>{ if (mode==='graph') renderGraph(); });
+        const od = document.getElementById('optDerivative'); if (od) od.addEventListener('change', ()=>{ if (mode==='graph') renderGraph(); });
+        const osq = document.getElementById('optSqueeze'); if (osq) osq.addEventListener('change', ()=>{ if (mode==='graph') renderGraph(); });
+        const oll = document.getElementById('optLimitLine'); if (oll) oll.addEventListener('change', ()=>{ if (mode==='graph') renderGraph(); });
+        const x0t = document.getElementById('x0Text'); if (x0t) x0t.addEventListener('input', ()=>{ if (mode==='graph') renderGraph(); });
+        const zIn = document.getElementById('zoomIn'); if (zIn) zIn.addEventListener('click', ()=> adjustZoom(0.7));
+        const zOut = document.getElementById('zoomOut'); if (zOut) zOut.addEventListener('click', ()=> adjustZoom(1.3));
+        const zR = document.getElementById('resetView'); if (zR) zR.addEventListener('click', ()=> resetView());
+        const em = document.getElementById('exprMath'); const et = document.getElementById('exprText');
+        if (em) em.addEventListener('input', ()=>{ if (mode==='graph') renderGraph(); });
+        if (et) et.addEventListener('input', ()=>{ if (mode==='graph') renderGraph(); });
+        const pm = document.getElementById('pointMath'); const pt = document.getElementById('pointText');
+        if (pm) pm.addEventListener('input', ()=>{ if (mode==='graph') renderGraph(); });
+        if (pt) pt.addEventListener('input', ()=>{ if (mode==='graph') renderGraph(); });
+      } catch {}
+    }
+
+    let graphRange = 2.0;
+    function currentXDomain(){ return [-graphRange, graphRange]; }
+    function adjustZoom(factor){ graphRange = Math.max(0.2, Math.min(20, graphRange * factor)); if (mode==='graph') renderGraph(); }
+    function resetView(){ graphRange = 2.0; if (mode==='graph') renderGraph(); }
+
+    async function renderGraph(){
+      const expr = getExprInput();
+      const a = getApproachValue();
+      const showInt = !!(document.getElementById('optIntegral')?.checked);
+      const showDer = !!(document.getElementById('optDerivative')?.checked);
+      const showSq  = !!(document.getElementById('optSqueeze')?.checked);
+      const showL   = !!(document.getElementById('optLimitLine')?.checked);
+      let x0Raw = String(document.getElementById('x0Text')?.value||'').trim();
+      let x0 = (x0Raw? evalLatexNumeric(x0Raw) : a);
+      if (!Number.isFinite(x0)) x0 = a;
+      const [xmin, xmax] = currentXDomain();
+      const N = 400;
+      const xs = new Array(N);
+      const ys = new Array(N);
+      for (let i=0;i<N;i++){
+        const x = xmin + (i*(xmax-xmin))/(N-1);
+        xs[i] = x;
+        try { ys[i] = evalAt(expr, x); } catch { ys[i] = NaN; }
+      }
+      const curve = { x: xs, y: ys, mode: 'lines', name: (lang==='ar'? 'الدالة' : 'Function'), line: { color: '#5b7cff', width: 2 } };
+      const data = [curve];
+      let Lval = NaN;
+      try {
+        Lval = estimateLimit(expr, 0);
+        data.push({ x: [0], y: [Lval], mode: 'markers', name: (lang==='ar'? 'النهاية عند 0' : 'Limit at 0'), marker: { color: '#a78bfa', size: 10, symbol: 'circle-open' } });
+      } catch {}
+            // optional horizontal limit line
+            if (showL && Number.isFinite(Lval)){
+              data.push({ x: [xmin, xmax], y: [Lval, Lval], mode: 'lines', name: (lang==='ar'? 'الحد L' : 'Limit L'), line: { color: '#6b7280', width: 1.5, dash: 'dot' } });
+            }
+            // optional squeeze bounds for forms m(x)*sin(1/x) or m(x)*cos(1/x)
+            if (showSq){
+              const usesSin = /sin\s*\(\s*1\s*\/\s*x\s*\)/.test(expr);
+              const usesCos = /cos\s*\(\s*1\s*\/\s*x\s*\)/.test(expr);
+              if (usesSin || usesCos){
+                const xi=[], yu=[], yl=[];
+                for (let i=0;i<N;i++){
+                  const x = xs[i];
+                  const denom = usesSin ? Math.sin(1/x) : Math.cos(1/x);
+                  if (!Number.isFinite(denom) || Math.abs(denom) < 1e-6) { xi.push(x); yu.push(NaN); yl.push(NaN); continue; }
+                  let y = ys[i];
+                  if (!Number.isFinite(y)) { xi.push(x); yu.push(NaN); yl.push(NaN); continue; }
+                  const m = Math.abs(y/denom);
+                  xi.push(x); yu.push(m); yl.push(-m);
+                }
+                data.push({ x: xi, y: yu, mode: 'lines', name: (lang==='ar'? '+سندة' : '+upper bound'), line: { color: '#22c55e', width: 1.5 } });
+                data.push({ x: xi, y: yl, mode: 'lines', name: (lang==='ar'? '-سندة' : '-lower bound'), line: { color: '#ef4444', width: 1.5 } });
+              }
+            }
+      const areaLbl = document.getElementById('areaLabel'); if (areaLbl) areaLbl.textContent = (lang==='ar'? 'المساحة ~ —' : 'Area ~ —');
+      if (showInt){
+        const eps = parseFloat(document.getElementById('eps')?.value||'0.5');
+        const xA = 0, xB = Math.min(eps, xmax);
+        const n2 = Math.max(50, Math.round(N*(xB-xA)/(xmax-xmin)));
+        const xi = [], yi = [];
+        for (let i=0;i<n2;i++){
+          const x = xA + (i*(xB-xA))/(n2-1);
+          xi.push(x);
+          try { yi.push(evalAt(expr, x)); } catch { yi.push(NaN); }
+        }
+        data.push({ x: xi.concat([xB,xA]), y: yi.concat([0,0]), fill: 'toself', type: 'scatter', name: (lang==='ar'? 'مساحة قرب 0' : 'Area near 0'), line: { color: 'rgba(167,139,250,.6)' }, fillcolor: 'rgba(167,139,250,.25)' });
+        try {
+          if (pyodideReady){
+            const val = await window.pyodide.runPythonAsync(`integral_value_eps(${JSON.stringify(expr)}, ${eps})`);
+            areaLbl.textContent = (lang==='ar'? `المساحة ~ ${(+val).toFixed(6)}` : `Area ~ ${(+val).toFixed(6)}`);
+          }
+        } catch {}
+      }
+      if (showDer){
+        let m = NaN;
+        try {
+          if (pyodideReady){
+            m = await window.pyodide.runPythonAsync(`deriv_slope(${JSON.stringify(expr)}, ${x0})`);
+          }
+        } catch {}
+        if (!Number.isFinite(m)){
+          try {
+            const h = 1e-5; m = (evalAt(expr, x0+h) - evalAt(expr, x0-h))/(2*h);
+          } catch {}
+        }
+        if (Number.isFinite(m)){
+          let y0 = NaN; try { y0 = evalAt(expr, x0); } catch {}
+          if (Number.isFinite(y0)){
+            const txs = [xmin, xmax];
+            const tys = txs.map(x=> y0 + m*(x - x0));
+            data.push({ x: txs, y: tys, mode: 'lines', name: (lang==='ar'? 'خط المماس' : 'Tangent line'), line: { color: '#10b981', width: 2, dash: 'dash' } });
+            data.push({ x: [x0], y: [y0], mode: 'markers', name: (lang==='ar'? 'نقطة المماس' : 'Tangent point'), marker: { color: '#10b981', size: 9 } });
+          }
+        }
+      }
+      const layout = {
+        margin: { l: 40, r: 20, t: 10, b: 40 },
+        paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
+        xaxis: { range: [xmin, xmax], gridcolor: 'rgba(255,255,255,0.12)' },
+        yaxis: { gridcolor: 'rgba(255,255,255,0.12)' },
+        showlegend: true,
+        legend: { orientation: 'h' }
+      };
+      try { Plotly.react('graph', data, layout, { responsive: true }); } catch {}
+    }
+
+    // re-render graph when new training question is created
+    const __origNewQuestion__ = newQuestion;
+    newQuestion = function(){ __origNewQuestion__(); try { if (mode==='graph') renderGraph(); } catch{} };
 
     // أدوات مساعدة لقراءة المجموعات { ... } في LaTeX
     function findBraceGroup(str, start){
