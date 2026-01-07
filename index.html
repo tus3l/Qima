@@ -579,7 +579,7 @@
       } catch { v = String(et ? et.value||'' : ''); }
       v = String(v||'').trim();
       if (/\\[A-Za-z]+/.test(v)) {
-        try { v = latexToJSExpr(v).replace(/Math\./g, ''); } catch {}
+        try { v = latexToJSExprCached(v).replace(/Math\./g, ''); } catch {}
       }
       return v;
     }
@@ -1456,6 +1456,10 @@ def integral_value_eps(s, eps):
     f = parse_expr(s)
     val = sp.integrate(f, (x, 0, eps))
     return float(sp.N(val))
+    def integral_value_around_a(s, a, eps):
+      f = parse_expr(s)
+      val = sp.integrate(f, (x, a-eps, a+eps))
+      return float(sp.N(val))
 def integral_latex(s):
     f = parse_expr(s)
     F = sp.integrate(f, x)
@@ -1508,7 +1512,10 @@ def integral_latex(s):
       let x0 = (x0Raw? evalLatexNumeric(x0Raw) : a);
       if (!Number.isFinite(x0)) x0 = a;
       const [xmin, xmax] = currentXDomain();
-      const N = (window.innerWidth <= 640) ? 240 : 400;
+      const baseN = (window.innerWidth <= 640) ? 240 : 400;
+      const len = Math.max(1, expr.length);
+      const factor = Math.max(0.6, Math.min(1.0, 280/(len+80)));
+      const N = Math.round(baseN * factor);
       let f;
       try { f = compileExprFn(expr); } catch { f = null; }
       const xs = new Array(N);
@@ -1525,7 +1532,7 @@ def integral_latex(s):
       const data = [curve];
       let Lval = NaN;
       try {
-        if (f) Lval = estimateLimitWithFn(f, 0); else Lval = estimateLimit(expr, 0);
+        if (f) Lval = estimateLimitWithFn(f, a); else Lval = estimateLimit(expr, a);
         data.push({ x: [0], y: [Lval], mode: 'markers', name: (lang==='ar'? 'النهاية عند 0' : 'Limit at 0'), marker: { color: '#a78bfa', size: 10, symbol: 'circle-open' } });
         if (Number.isFinite(Lval)) addExtentFrom([Lval]);
       } catch {}
@@ -1533,15 +1540,19 @@ def integral_latex(s):
             if (showL && Number.isFinite(Lval)){
               data.push({ x: [xmin, xmax], y: [Lval, Lval], mode: 'lines', name: (lang==='ar'? 'الحد L' : 'Limit L'), line: { color: '#6b7280', width: 1.5, dash: 'dot' } });
             }
-            // optional squeeze bounds for forms m(x)*sin(1/x) or m(x)*cos(1/x)
+            // optional squeeze bounds for forms m(x)*sin(1/(x-a)) or m(x)*cos(1/(x-a)) (also supports 1/x when a=0)
             if (showSq){
-              const usesSin = /sin\s*\(\s*1\s*\/\s*x\s*\)/.test(expr);
-              const usesCos = /cos\s*\(\s*1\s*\/\s*x\s*\)/.test(expr);
+              const usesSinX = /sin\s*\(\s*1\s*\/\s*x\s*\)/.test(expr) || /Math\.sin\s*\(\s*1\s*\/\s*x\s*\)/.test(expr);
+              const usesCosX = /cos\s*\(\s*1\s*\/\s*x\s*\)/.test(expr) || /Math\.cos\s*\(\s*1\s*\/\s*x\s*\)/.test(expr);
+              const usesSinShift = /sin\s*\(\s*1\s*\/\s*\(\s*x\s*-\s*a\s*\)\s*\)/.test(expr) || /Math\.sin\s*\(\s*1\s*\/\s*\(\s*x\s*-\s*a\s*\)\s*\)/.test(expr);
+              const usesCosShift = /cos\s*\(\s*1\s*\/\s*\(\s*x\s*-\s*a\s*\)\s*\)/.test(expr) || /Math\.cos\s*\(\s*1\s*\/\s*\(\s*x\s*-\s*a\s*\)\s*\)/.test(expr);
+              const usesSin = usesSinX || usesSinShift; const usesCos = usesCosX || usesCosShift;
               if (usesSin || usesCos){
                 const xi=[], yu=[], yl=[];
                 for (let i=0;i<N;i++){
                   const x = xs[i];
-                  const denom = usesSin ? Math.sin(1/x) : Math.cos(1/x);
+                  const near = (usesSinShift || usesCosShift) ? (x - a) : x;
+                  const denom = usesSin ? Math.sin(1/near) : Math.cos(1/near);
                   if (!Number.isFinite(denom) || Math.abs(denom) < 1e-6) { xi.push(x); yu.push(NaN); yl.push(NaN); continue; }
                   let y = ys[i];
                   if (!Number.isFinite(y)) { xi.push(x); yu.push(NaN); yl.push(NaN); continue; }
@@ -1556,7 +1567,7 @@ def integral_latex(s):
       const areaLbl = document.getElementById('areaLabel'); if (areaLbl) areaLbl.textContent = (lang==='ar'? 'المساحة ~ —' : 'Area ~ —');
       if (showInt){
         const eps = parseFloat(document.getElementById('eps')?.value||'0.5');
-        const xA = 0, xB = Math.min(eps, xmax);
+        const xA = Math.max(xmin, a - eps), xB = Math.min(xmax, a + eps);
         const n2 = Math.max(50, Math.round(N*(xB-xA)/(xmax-xmin)));
         const xi = [], yi = [];
         for (let i=0;i<n2;i++){
@@ -1564,11 +1575,11 @@ def integral_latex(s):
           xi.push(x);
           try { yi.push(f ? f(x) : evalAt(expr, x)); } catch { yi.push(NaN); }
         }
-        data.push({ x: xi.concat([xB,xA]), y: yi.concat([0,0]), fill: 'toself', type: 'scatter', name: (lang==='ar'? 'مساحة قرب 0' : 'Area near 0'), line: { color: 'rgba(167,139,250,.6)' }, fillcolor: 'rgba(167,139,250,.25)' });
+        data.push({ x: xi.concat([xB,xA]), y: yi.concat([0,0]), fill: 'toself', type: 'scatter', name: (lang==='ar'? 'مساحة حول a' : 'Area around a'), line: { color: 'rgba(167,139,250,.6)' }, fillcolor: 'rgba(167,139,250,.25)' });
         addExtentFrom(yi);
         try {
           if (pyodideReady){
-            const val = await window.pyodide.runPythonAsync(`integral_value_eps(${JSON.stringify(expr)}, ${eps})`);
+            const val = await window.pyodide.runPythonAsync(`integral_value_around_a(${JSON.stringify(expr)}, ${a}, ${eps})`);
             if (seq === renderSeq) areaLbl.textContent = (lang==='ar'? `المساحة ~ ${(+val).toFixed(6)}` : `Area ~ ${(+val).toFixed(6)}`);
           }
         } catch {}
@@ -1614,7 +1625,7 @@ def integral_latex(s):
         showlegend: true,
         legend: isMobile ? { orientation: 'v', x: 0, y: 1.02 } : { orientation: 'h' },
         annotations,
-        shapes: [ { type: 'line', x0: 0, x1: 0, y0: yMin - padY, y1: yMax + padY, line: { color: '#6b7280', width: 1, dash: 'dot' } } ]
+        shapes: [ { type: 'line', x0: a, x1: a, y0: yMin - padY, y1: yMax + padY, line: { color: '#6b7280', width: 1, dash: 'dot' } } ]
       };
       // Ensure the graph height suits the current viewport, then render responsively
       fitGraphHeight();
@@ -1624,7 +1635,7 @@ def integral_latex(s):
     }
 
     // Debounced renderer to avoid excessive redraws during typing/sliding
-    const scheduleRenderGraph = debounce(()=>{ if (mode==='graph') renderGraph(); }, 120);
+    const scheduleRenderGraph = debounce(()=>{ if (mode==='graph') renderGraph(); }, 180);
 
     // re-render graph when new training question is created
     const __origNewQuestion__ = newQuestion;
@@ -1687,6 +1698,16 @@ def integral_latex(s):
       s = s.replace(/\{([^{}]+)\}/g, (m,a)=>`(${a})`);
       s = s.replace(/\\cdot/g, '*');
       return s;
+    }
+    // Cache heavy LaTeX→JS conversions to avoid freezes on long inputs
+    const LATEX_CACHE = new Map();
+    function latexToJSExprCached(lx){
+      try {
+        if (LATEX_CACHE.has(lx)) return LATEX_CACHE.get(lx);
+        const out = latexToJSExpr(lx);
+        LATEX_CACHE.set(lx, out);
+        return out;
+      } catch { return latexToJSExpr(lx); }
     }
     function evalLatexNumeric(lx){
       try{
