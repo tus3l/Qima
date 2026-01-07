@@ -179,11 +179,11 @@
     /* === Graph mobile responsiveness === */
     #graph { height: 420px; }
     /* Read-only solution graph under the answer */
-    #solutionGraph { width: 100%; height: 320px; }
+    #solutionGraph { width: 100%; height: 260px; }
     @media (max-width: 640px) {
       /* Make the graph fill a sensible portion of the viewport */
       #graph { height: clamp(260px, 50dvh, 520px) !important; }
-      #solutionGraph { height: clamp(220px, 42dvh, 460px) !important; }
+      #solutionGraph { height: clamp(200px, 38dvh, 360px) !important; }
       #graphCard .row { gap: 8px; }
       #graphCard .control { flex-wrap: wrap; }
       #graphCard input[type="range"] { width: 100%; }
@@ -835,7 +835,7 @@
           const a = getApproachValue();
           const aText = getApproachLabel();
           const L = (function(){ try { const f = compileExprFn(expr); return estimateLimitWithFn(f, a);} catch { return estimateLimit(expr, a);} })();
-          res.innerHTML = `<p class='fade-in'><strong>${STR[lang].limitAs} ${aText}:</strong> ~ ${L.toFixed(6)}</p><div id='solutionGraph' class='fade-in' style='margin-top:8px;'></div>`;
+          res.innerHTML = `<div id='solutionGraph' class='fade-in' style='margin-bottom:8px;'></div><p class='fade-in'><strong>${STR[lang].limitAs} ${aText}:</strong> ~ ${L.toFixed(6)}</p>`;
           // Draw a compact, read-only solution graph beneath the answer
           try { renderSolutionGraph(expr, a, L); } catch {}
         } catch(e) {
@@ -1492,11 +1492,11 @@ def integral_latex(s):
         const zOut = document.getElementById('zoomOut'); if (zOut) zOut.addEventListener('click', ()=> adjustZoom(1.3));
         const zR = document.getElementById('resetView'); if (zR) zR.addEventListener('click', ()=> resetView());
         const em = document.getElementById('exprMath'); const et = document.getElementById('exprText');
-        if (em) em.addEventListener('input', scheduleRenderGraph);
-        if (et) et.addEventListener('input', scheduleRenderGraph);
+        if (em) em.addEventListener('input', function(){ scheduleRenderGraph(); scheduleSolutionGraph(); });
+        if (et) et.addEventListener('input', function(){ scheduleRenderGraph(); scheduleSolutionGraph(); });
         const pm = document.getElementById('pointMath'); const pt = document.getElementById('pointText');
-        if (pm) pm.addEventListener('input', scheduleRenderGraph);
-        if (pt) pt.addEventListener('input', scheduleRenderGraph);
+        if (pm) pm.addEventListener('input', function(){ scheduleRenderGraph(); scheduleSolutionGraph(); });
+        if (pt) pt.addEventListener('input', function(){ scheduleRenderGraph(); scheduleSolutionGraph(); });
       } catch {}
     }
 
@@ -1645,15 +1645,20 @@ def integral_latex(s):
       const isMobile = window.innerWidth <= 640;
       // domain centered at a
       const R = 2.0; const xmin = a - R, xmax = a + R;
-      const baseN = isMobile ? 220 : 320;
+      const baseN = isMobile ? 300 : 540;
       const len = Math.max(1, expr.length); const factor = Math.max(0.6, Math.min(1.0, 280/(len+80)));
       const N = Math.round(baseN * factor);
       let f; try { f = compileExprFn(expr); } catch { f = null; }
       const xs = new Array(N); const ys = new Array(N);
       let yMin = Infinity, yMax = -Infinity;
       const addExt = (arr)=>{ for (const v of arr){ if (Number.isFinite(v)){ yMin = Math.min(yMin, v); yMax = Math.max(yMax, v); } } };
+      // Cluster more samples near x=a for higher accuracy around the limit
       for (let i=0;i<N;i++){
-        const x = xmin + (i*(xmax-xmin))/(N-1); xs[i]=x;
+        const t = (i/(N-1))*2 - 1; // [-1,1]
+        const k = 2.0; // concentration factor
+        const s = Math.tanh(k*t)/Math.tanh(k); // still in [-1,1], denser near 0
+        const x = a + (xmax-a)*((s+1)/2) + (xmin-a)*((1-s)/2);
+        xs[i]=x;
         try { ys[i] = f ? f(x) : evalAt(expr, x); } catch { ys[i] = NaN; }
       }
       addExt(ys);
@@ -1697,6 +1702,15 @@ def integral_latex(s):
 
     // Debounced renderer to avoid excessive redraws during typing/sliding
     const scheduleRenderGraph = debounce(()=>{ if (mode==='graph') renderGraph(); }, 180);
+    const scheduleSolutionGraph = debounce(()=>{
+      if (mode !== 'solve') return;
+      const target = document.getElementById('solutionGraph'); if (!target) return;
+      try {
+        const expr = getExprInput(); const a = getApproachValue();
+        let L = NaN; try { const f = compileExprFn(expr); L = estimateLimitWithFn(f, a); } catch { L = estimateLimit(expr, a); }
+        renderSolutionGraph(expr, a, L);
+      } catch {}
+    }, 220);
 
     // re-render graph when new training question is created
     const __origNewQuestion__ = newQuestion;
