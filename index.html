@@ -691,8 +691,20 @@
     async function renderCalcGraph(expr, opts){
       const target = document.getElementById('calcGraph'); if (!target) return;
       const isMobile = window.innerWidth <= 640;
-      // نطاق x افتراضي واضح، ويمكن ضبطه لاحقًا ديناميكيًا إن لزم
-      const R = 2.0; const xmin=-R, xmax=R;
+      // نطاق x: اجعله ديناميكيًا لاحتواء [a,b] أو نقطة المماس
+      const R = 2.0; let xmin=-R, xmax=R;
+      try {
+        if (opts && opts.mode==='int' && opts.bounds && Number.isFinite(opts.bounds[0]) && Number.isFinite(opts.bounds[1])){
+          const a0 = Math.min(opts.bounds[0], opts.bounds[1]);
+          const b0 = Math.max(opts.bounds[0], opts.bounds[1]);
+          const span = Math.max(1e-6, Math.abs(b0 - a0));
+          const pad = Math.max(0.5, span * 0.1);
+          xmin = a0 - pad; xmax = b0 + pad;
+        } else if (opts && opts.mode==='diff' && Number.isFinite(opts.at)) {
+          const at = opts.at;
+          if (at < xmin || at > xmax) { xmin = at - R; xmax = at + R; }
+        }
+      } catch{}
       let f; try { f = compileCalcExprFn(expr); } catch { f=null; }
       const q = getCalcQuality();
       const baseN = (q==='high') ? (isMobile? 560 : 1000) : (isMobile? 420 : 760);
