@@ -180,10 +180,13 @@
     #graph { height: 420px; }
     /* Read-only solution graph under the answer */
     #solutionGraph { width: 100%; height: 260px; }
+    /* Training mode compact graph above the button */
+    #trainGraph { width: 100%; height: 220px; }
     @media (max-width: 640px) {
       /* Make the graph fill a sensible portion of the viewport */
       #graph { height: clamp(260px, 50dvh, 520px) !important; }
       #solutionGraph { height: clamp(200px, 38dvh, 360px) !important; }
+      #trainGraph { height: clamp(180px, 34dvh, 320px) !important; }
       #graphCard .row { gap: 8px; }
       #graphCard .control { flex-wrap: wrap; }
       #graphCard input[type="range"] { width: 100%; }
@@ -305,6 +308,8 @@
       </div>
       <!-- مكان ثابت لوضع خانة الإجابة تحت زر التلميح في وضع التدريب -->
       <div id="ansContainer" style="display:none; margin-top:8px;"></div>
+      <!-- Training read-only graph appears above the Check button when in game mode -->
+      <div id="trainGraph" class="fade-in" style="display:none; margin-top:8px;"></div>
       <br />
       <button id="check">تحقق</button>
     </div>
@@ -903,14 +908,25 @@
             ansCont.appendChild(document.getElementById('ansBlock'));
           }
         } catch{}
+        // show the compact training graph above the Check button
+        try {
+          const tg = document.getElementById('trainGraph'); if (tg) tg.style.display = '';
+          const a = getApproachValue();
+          const raw = getExprInput();
+          const expr = normalizeExprForA(raw, a);
+          let L = NaN; try { const f = compileExprFn(expr); L = estimateLimitWithFn(f, a);} catch { L = estimateLimit(expr, a);} 
+          renderCompactTrainGraph(expr, a, L);
+        } catch{}
         // show the tip on first entry to game mode
         try { const seen = localStorage.getItem('menuTipSeen'); if (!seen) { showMenuTip(); setTimeout(()=>hideMenuTip(true), 4500); } } catch{}
       } else if (mode==='graph') {
         try { const x0t = document.getElementById('x0Text'); if (x0t && !x0t.value) x0t.value = String(getApproachValue()); } catch {}
         try { renderGraph(); } catch {}
         if (ansCont) ansCont.style.display = 'none';
+        try { const tg = document.getElementById('trainGraph'); if (tg) tg.style.display = 'none'; } catch{}
       } else {
         if (ansCont) ansCont.style.display = 'none';
+        try { const tg = document.getElementById('trainGraph'); if (tg) tg.style.display = 'none'; } catch{}
       }
     });
 
@@ -1492,11 +1508,11 @@ def integral_latex(s):
         const zOut = document.getElementById('zoomOut'); if (zOut) zOut.addEventListener('click', ()=> adjustZoom(1.3));
         const zR = document.getElementById('resetView'); if (zR) zR.addEventListener('click', ()=> resetView());
         const em = document.getElementById('exprMath'); const et = document.getElementById('exprText');
-        if (em) em.addEventListener('input', function(){ scheduleRenderGraph(); scheduleSolutionGraph(); });
-        if (et) et.addEventListener('input', function(){ scheduleRenderGraph(); scheduleSolutionGraph(); });
+        if (em) em.addEventListener('input', function(){ scheduleRenderGraph(); scheduleSolutionGraph(); scheduleTrainGraph(); });
+        if (et) et.addEventListener('input', function(){ scheduleRenderGraph(); scheduleSolutionGraph(); scheduleTrainGraph(); });
         const pm = document.getElementById('pointMath'); const pt = document.getElementById('pointText');
-        if (pm) pm.addEventListener('input', function(){ scheduleRenderGraph(); scheduleSolutionGraph(); });
-        if (pt) pt.addEventListener('input', function(){ scheduleRenderGraph(); scheduleSolutionGraph(); });
+        if (pm) pm.addEventListener('input', function(){ scheduleRenderGraph(); scheduleSolutionGraph(); scheduleTrainGraph(); });
+        if (pt) pt.addEventListener('input', function(){ scheduleRenderGraph(); scheduleSolutionGraph(); scheduleTrainGraph(); });
       } catch {}
     }
 
@@ -1640,12 +1656,14 @@ def integral_latex(s):
     }
 
     // ====== Read-only compact graph for solution ======
-    async function renderSolutionGraph(expr, a, Lhint){
-      const target = document.getElementById('solutionGraph'); if (!target) return;
+    async function renderSolutionGraph(expr, a, Lhint, opts){
+      const target = (opts && opts.targetId) ? document.getElementById(opts.targetId) : document.getElementById('solutionGraph');
+      if (!target) return;
       const isMobile = window.innerWidth <= 640;
       // domain centered at a
       const R = 2.0; const xmin = a - R, xmax = a + R;
-      const baseN = isMobile ? 300 : 540;
+      const quality = (opts && opts.quality) || 'normal';
+      const baseN = quality==='high' ? (isMobile ? 420 : 760) : (isMobile ? 300 : 540);
       const len = Math.max(1, expr.length); const factor = Math.max(0.6, Math.min(1.0, 280/(len+80)));
       const N = Math.round(baseN * factor);
       let f; try { f = compileExprFn(expr); } catch { f = null; }
@@ -1700,6 +1718,10 @@ def integral_latex(s):
       try { Plotly.react(target, data, layout, { responsive:true, displayModeBar:false }); } catch{}
     }
 
+    function renderCompactTrainGraph(expr, a, L){
+      renderSolutionGraph(expr, a, L, { quality: 'high', targetId: 'trainGraph' });
+    }
+
     // Debounced renderer to avoid excessive redraws during typing/sliding
     const scheduleRenderGraph = debounce(()=>{ if (mode==='graph') renderGraph(); }, 180);
     const scheduleSolutionGraph = debounce(()=>{
@@ -1711,10 +1733,34 @@ def integral_latex(s):
         renderSolutionGraph(expr, a, L);
       } catch {}
     }, 220);
+    const scheduleTrainGraph = debounce(()=>{
+      if (mode !== 'game') return;
+      const tg = document.getElementById('trainGraph'); if (!tg) return;
+      try {
+        const a = getApproachValue();
+        const raw = getExprInput();
+        const expr = normalizeExprForA(raw, a);
+        let L = NaN; try { const f = compileExprFn(expr); L = estimateLimitWithFn(f, a); } catch { L = estimateLimit(expr, a); }
+        renderCompactTrainGraph(expr, a, L);
+      } catch {}
+    }, 220);
 
     // re-render graph when new training question is created
     const __origNewQuestion__ = newQuestion;
-    newQuestion = function(){ __origNewQuestion__(); try { if (mode==='graph') renderGraph(); } catch{} };
+    newQuestion = function(){
+      __origNewQuestion__();
+      try { if (mode==='graph') renderGraph(); } catch{}
+      try {
+        if (mode==='game') {
+          const a = getApproachValue();
+          const raw = getExprInput();
+          const expr = normalizeExprForA(raw, a);
+          let L;
+          try { const f=compileExprFn(expr); L=estimateLimitWithFn(f,a);} catch { L=estimateLimit(expr,a);} 
+          renderCompactTrainGraph(expr,a,L);
+        }
+      } catch{}
+    };
 
     // أدوات مساعدة لقراءة المجموعات { ... } في LaTeX
     function findBraceGroup(str, start){
@@ -1818,6 +1864,20 @@ def integral_latex(s):
       if (!s) return 0;
       const val = evalLatexNumeric(s);
       return (typeof val==='number' && Number.isFinite(val)) ? val : 0;
+    }
+    // Normalize any explicit shifts like (x - c) or (x + c) to use current a
+    // Only rewrites when the linear term is parenthesized to avoid unintended changes (e.g., 2*x-1 stays intact)
+    function normalizeExprForA(expr, a){
+      try{
+        if (!expr) return expr;
+        const A = Number(a);
+        if (!Number.isFinite(A)) return expr;
+        // keep a concise numeric string
+        const aStr = (Math.abs(A - Math.round(A)) < 1e-9) ? String(Math.round(A)) : String(parseFloat(A.toFixed(8)));
+        // Replace any parenthesized linear term of the form (x ± number)
+        // Examples matched: (x-1), (x + 2.5), ( x- 3 )
+        return expr.replace(/\(\s*x\s*[+\-]\s*\d+(?:\.\d+)?\s*\)/g, ()=>`(x - ${aStr})`);
+      }catch{ return expr; }
     }
     function approachTextToLatex(txt){
       let t = String(txt||'');
