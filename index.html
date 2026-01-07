@@ -3,7 +3,18 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>نهايات المثلثات (x → a)</title>
+  <title>MathQimh — نهايات المثلثات (x → a)</title>
+  <meta name="description" content="تمارين ونهايات مثلثية تفاعلية مع رسم بياني وشرح وخيارات تدريب — MathQimh" />
+  <link rel="canonical" href="https://mathqimh.com/" />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://mathqimh.com/" />
+  <meta property="og:title" content="MathQimh — نهايات المثلثات" />
+  <meta property="og:description" content="تمارين ونهايات مثلثية تفاعلية مع رسم بياني وشرح وخيارات تدريب" />
+  <meta property="og:image" content="https://mathqimh.com/reactions/reaction101.jpg" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="MathQimh — نهايات المثلثات" />
+  <meta name="twitter:description" content="تمارين ونهايات مثلثية تفاعلية مع رسم بياني وشرح وخيارات تدريب" />
+  <meta name="twitter:image" content="https://mathqimh.com/reactions/reaction101.jpg" />
   <style>
     :root {
       --bg: #0b1220; --text: #e5e7eb; --muted: #94a3b8; --accent: #a78bfa;
@@ -164,6 +175,17 @@
     @media (max-width: 380px) {
       button, .seg-btn { padding: 10px 12px; }
       .textfield, .mathfield { min-height: 52px; }
+    }
+    /* === Graph mobile responsiveness === */
+    #graph { height: 420px; }
+    @media (max-width: 640px) {
+      /* Make the graph fill a sensible portion of the viewport */
+      #graph { height: clamp(260px, 50dvh, 520px) !important; }
+      #graphCard .row { gap: 8px; }
+      #graphCard .control { flex-wrap: wrap; }
+      #graphCard input[type="range"] { width: 100%; }
+      #graphCard input[type="checkbox"] { width: 22px; height: 22px; }
+      #graphCard label { line-height: 1.3; }
     }
     /* === Explicit high-contrast overrides requested === */
     math-field {
@@ -571,6 +593,27 @@
       return Function(js)();
     }
 
+    // Compile expression once into a fast JS function f(x)
+    function compileExprFn(expr){
+      const safe = sanitizeExpr(expr);
+      if (!safe) throw new Error('invalid');
+      // eslint-disable-next-line no-new-func
+      const fn = new Function('x', `return (${safe});`);
+      return function(x){ return fn(x); };
+    }
+
+    function estimateLimitWithFn(f, a){
+      const xs = [1e-4, 5e-5, -5e-5, 1e-5, -1e-5].map(d => a + d);
+      const vals = [];
+      for (const xv of xs) {
+        const v = f(xv);
+        if (!Number.isFinite(v)) throw new Error('nonfinite');
+        vals.push(v);
+      }
+      vals.sort((p,q)=>p-q);
+      return vals[Math.floor(vals.length/2)];
+    }
+
     function estimateLimit(expr, a) {
       // Evaluate near selected point a and average robustly
       const xs = [1e-4, 5e-5, -5e-5, 1e-5, -1e-5].map(d => a + d);
@@ -932,12 +975,36 @@
       // رسم النصوص المائية في الخلفية
       populateWatermark();
       window.addEventListener('resize', debounce(populateWatermark, 200));
+      // Graph resize observer for mobile/orientation changes
+      try {
+        const g = document.getElementById('graph');
+        if (g && 'ResizeObserver' in window) {
+          const ro = new ResizeObserver(()=>{ try { Plotly.Plots.resize(g); } catch{} });
+          ro.observe(g);
+        }
+        window.addEventListener('orientationchange', ()=>{ try { fitGraphHeight(); Plotly.Plots.resize(g); } catch{} });
+        window.addEventListener('resize', debounce(()=>{ try { fitGraphHeight(); if (g) Plotly.Plots.resize(g); } catch{} }, 150));
+      } catch {}
       // مفاتيح اختصارات: Enter للتحقق، Ctrl+N لسؤال جديد
       window.addEventListener('keydown', (e)=>{
         if (e.key === 'Enter') document.getElementById('check').click();
         if ((e.ctrlKey || e.metaKey) && (e.key==='n' || e.key==='N')) { e.preventDefault(); newQuestion(); }
       });
     })();
+    // Fit graph div height to viewport on small screens
+    function fitGraphHeight(){
+      try {
+        const g = document.getElementById('graph'); if (!g) return;
+        const isMobile = window.innerWidth <= 640;
+        if (isMobile) {
+          // Match CSS clamp(260px, 50dvh, 520px)
+          const vh = Math.max(260, Math.min(window.innerHeight * 0.5, 520));
+          g.style.height = vh + 'px';
+        } else {
+          g.style.height = '420px';
+        }
+      } catch {}
+    }
     // --- Mobile keyboard UX: dismiss button, padding, outside click ---
     function setupKeyboardUX(){
       const cont = document.querySelector('.container');
@@ -1369,6 +1436,7 @@
 
     // ====== Interactive Graphing with Plotly + SymPy (via Pyodide) ======
     let pyodideReady = false;
+    let renderSeq = 0; // guard async updates
     async function initSymPy(){
       try {
         const status = document.getElementById('sympyStatus'); if (status) status.textContent = (lang==='ar'? 'SymPy: جاري التحميل…' : 'SymPy: loading…');
@@ -1405,21 +1473,21 @@ def integral_latex(s):
     function bindGraphControls(){
       try {
         const eps = document.getElementById('eps'); const epsVal = document.getElementById('epsVal');
-        if (eps) eps.addEventListener('input', ()=>{ const v = parseFloat(eps.value||'0.5'); epsVal.textContent = `ε=${v.toFixed(2)}`; if (mode==='graph') renderGraph(); });
-        const oi = document.getElementById('optIntegral'); if (oi) oi.addEventListener('change', ()=>{ if (mode==='graph') renderGraph(); });
-        const od = document.getElementById('optDerivative'); if (od) od.addEventListener('change', ()=>{ if (mode==='graph') renderGraph(); });
-        const osq = document.getElementById('optSqueeze'); if (osq) osq.addEventListener('change', ()=>{ if (mode==='graph') renderGraph(); });
-        const oll = document.getElementById('optLimitLine'); if (oll) oll.addEventListener('change', ()=>{ if (mode==='graph') renderGraph(); });
-        const x0t = document.getElementById('x0Text'); if (x0t) x0t.addEventListener('input', ()=>{ if (mode==='graph') renderGraph(); });
+        if (eps) eps.addEventListener('input', ()=>{ const v = parseFloat(eps.value||'0.5'); epsVal.textContent = `ε=${v.toFixed(2)}`; scheduleRenderGraph(); });
+        const oi = document.getElementById('optIntegral'); if (oi) oi.addEventListener('change', scheduleRenderGraph);
+        const od = document.getElementById('optDerivative'); if (od) od.addEventListener('change', scheduleRenderGraph);
+        const osq = document.getElementById('optSqueeze'); if (osq) osq.addEventListener('change', scheduleRenderGraph);
+        const oll = document.getElementById('optLimitLine'); if (oll) oll.addEventListener('change', scheduleRenderGraph);
+        const x0t = document.getElementById('x0Text'); if (x0t) x0t.addEventListener('input', scheduleRenderGraph);
         const zIn = document.getElementById('zoomIn'); if (zIn) zIn.addEventListener('click', ()=> adjustZoom(0.7));
         const zOut = document.getElementById('zoomOut'); if (zOut) zOut.addEventListener('click', ()=> adjustZoom(1.3));
         const zR = document.getElementById('resetView'); if (zR) zR.addEventListener('click', ()=> resetView());
         const em = document.getElementById('exprMath'); const et = document.getElementById('exprText');
-        if (em) em.addEventListener('input', ()=>{ if (mode==='graph') renderGraph(); });
-        if (et) et.addEventListener('input', ()=>{ if (mode==='graph') renderGraph(); });
+        if (em) em.addEventListener('input', scheduleRenderGraph);
+        if (et) et.addEventListener('input', scheduleRenderGraph);
         const pm = document.getElementById('pointMath'); const pt = document.getElementById('pointText');
-        if (pm) pm.addEventListener('input', ()=>{ if (mode==='graph') renderGraph(); });
-        if (pt) pt.addEventListener('input', ()=>{ if (mode==='graph') renderGraph(); });
+        if (pm) pm.addEventListener('input', scheduleRenderGraph);
+        if (pt) pt.addEventListener('input', scheduleRenderGraph);
       } catch {}
     }
 
@@ -1429,6 +1497,7 @@ def integral_latex(s):
     function resetView(){ graphRange = 2.0; if (mode==='graph') renderGraph(); }
 
     async function renderGraph(){
+      const seq = ++renderSeq;
       const expr = getExprInput();
       const a = getApproachValue();
       const showInt = !!(document.getElementById('optIntegral')?.checked);
@@ -1439,19 +1508,21 @@ def integral_latex(s):
       let x0 = (x0Raw? evalLatexNumeric(x0Raw) : a);
       if (!Number.isFinite(x0)) x0 = a;
       const [xmin, xmax] = currentXDomain();
-      const N = 400;
+      const N = (window.innerWidth <= 640) ? 240 : 400;
+      let f;
+      try { f = compileExprFn(expr); } catch { f = null; }
       const xs = new Array(N);
       const ys = new Array(N);
       for (let i=0;i<N;i++){
         const x = xmin + (i*(xmax-xmin))/(N-1);
         xs[i] = x;
-        try { ys[i] = evalAt(expr, x); } catch { ys[i] = NaN; }
+        try { ys[i] = f ? f(x) : evalAt(expr, x); } catch { ys[i] = NaN; }
       }
       const curve = { x: xs, y: ys, mode: 'lines', name: (lang==='ar'? 'الدالة' : 'Function'), line: { color: '#5b7cff', width: 2 } };
       const data = [curve];
       let Lval = NaN;
       try {
-        Lval = estimateLimit(expr, 0);
+        if (f) Lval = estimateLimitWithFn(f, 0); else Lval = estimateLimit(expr, 0);
         data.push({ x: [0], y: [Lval], mode: 'markers', name: (lang==='ar'? 'النهاية عند 0' : 'Limit at 0'), marker: { color: '#a78bfa', size: 10, symbol: 'circle-open' } });
       } catch {}
             // optional horizontal limit line
@@ -1486,13 +1557,13 @@ def integral_latex(s):
         for (let i=0;i<n2;i++){
           const x = xA + (i*(xB-xA))/(n2-1);
           xi.push(x);
-          try { yi.push(evalAt(expr, x)); } catch { yi.push(NaN); }
+          try { yi.push(f ? f(x) : evalAt(expr, x)); } catch { yi.push(NaN); }
         }
         data.push({ x: xi.concat([xB,xA]), y: yi.concat([0,0]), fill: 'toself', type: 'scatter', name: (lang==='ar'? 'مساحة قرب 0' : 'Area near 0'), line: { color: 'rgba(167,139,250,.6)' }, fillcolor: 'rgba(167,139,250,.25)' });
         try {
           if (pyodideReady){
             const val = await window.pyodide.runPythonAsync(`integral_value_eps(${JSON.stringify(expr)}, ${eps})`);
-            areaLbl.textContent = (lang==='ar'? `المساحة ~ ${(+val).toFixed(6)}` : `Area ~ ${(+val).toFixed(6)}`);
+            if (seq === renderSeq) areaLbl.textContent = (lang==='ar'? `المساحة ~ ${(+val).toFixed(6)}` : `Area ~ ${(+val).toFixed(6)}`);
           }
         } catch {}
       }
@@ -1505,11 +1576,11 @@ def integral_latex(s):
         } catch {}
         if (!Number.isFinite(m)){
           try {
-            const h = 1e-5; m = (evalAt(expr, x0+h) - evalAt(expr, x0-h))/(2*h);
+            const h = 1e-5; m = ((f?f(x0+h):evalAt(expr, x0+h)) - (f?f(x0-h):evalAt(expr, x0-h)))/(2*h);
           } catch {}
         }
         if (Number.isFinite(m)){
-          let y0 = NaN; try { y0 = evalAt(expr, x0); } catch {}
+          let y0 = NaN; try { y0 = f ? f(x0) : evalAt(expr, x0); } catch {}
           if (Number.isFinite(y0)){
             const txs = [xmin, xmax];
             const tys = txs.map(x=> y0 + m*(x - x0));
@@ -1518,16 +1589,24 @@ def integral_latex(s):
           }
         }
       }
+      const isMobile = window.innerWidth <= 640;
       const layout = {
-        margin: { l: 40, r: 20, t: 10, b: 40 },
+        margin: isMobile ? { l: 28, r: 14, t: 6, b: 34 } : { l: 40, r: 20, t: 10, b: 40 },
         paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
         xaxis: { range: [xmin, xmax], gridcolor: 'rgba(255,255,255,0.12)' },
         yaxis: { gridcolor: 'rgba(255,255,255,0.12)' },
         showlegend: true,
-        legend: { orientation: 'h' }
+        legend: isMobile ? { orientation: 'v', x: 0, y: 1.02 } : { orientation: 'h' }
       };
-      try { Plotly.react('graph', data, layout, { responsive: true }); } catch {}
+      // Ensure the graph height suits the current viewport, then render responsively
+      fitGraphHeight();
+      try {
+        Plotly.react('graph', data, layout, { responsive: true, displaylogo: false, scrollZoom: true });
+      } catch {}
     }
+
+    // Debounced renderer to avoid excessive redraws during typing/sliding
+    const scheduleRenderGraph = debounce(()=>{ if (mode==='graph') renderGraph(); }, 120);
 
     // re-render graph when new training question is created
     const __origNewQuestion__ = newQuestion;
