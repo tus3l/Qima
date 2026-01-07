@@ -908,15 +908,8 @@
             ansCont.appendChild(document.getElementById('ansBlock'));
           }
         } catch{}
-        // show the compact training graph above the Check button
-        try {
-          const tg = document.getElementById('trainGraph'); if (tg) tg.style.display = '';
-          const a = getApproachValue();
-          const raw = getExprInput();
-          const expr = normalizeExprForA(raw, a);
-          let L = NaN; try { const f = compileExprFn(expr); L = estimateLimitWithFn(f, a);} catch { L = estimateLimit(expr, a);} 
-          renderCompactTrainGraph(expr, a, L);
-        } catch{}
+        // hide training graph in game mode
+        try { const tg = document.getElementById('trainGraph'); if (tg) tg.style.display = 'none'; } catch{}
         // show the tip on first entry to game mode
         try { const seen = localStorage.getItem('menuTipSeen'); if (!seen) { showMenuTip(); setTimeout(()=>hideMenuTip(true), 4500); } } catch{}
       } else if (mode==='graph') {
@@ -1734,15 +1727,8 @@ def integral_latex(s):
       } catch {}
     }, 220);
     const scheduleTrainGraph = debounce(()=>{
-      if (mode !== 'game') return;
-      const tg = document.getElementById('trainGraph'); if (!tg) return;
-      try {
-        const a = getApproachValue();
-        const raw = getExprInput();
-        const expr = normalizeExprForA(raw, a);
-        let L = NaN; try { const f = compileExprFn(expr); L = estimateLimitWithFn(f, a); } catch { L = estimateLimit(expr, a); }
-        renderCompactTrainGraph(expr, a, L);
-      } catch {}
+      // disabled: do nothing in training mode
+      return;
     }, 220);
 
     // re-render graph when new training question is created
@@ -1750,16 +1736,7 @@ def integral_latex(s):
     newQuestion = function(){
       __origNewQuestion__();
       try { if (mode==='graph') renderGraph(); } catch{}
-      try {
-        if (mode==='game') {
-          const a = getApproachValue();
-          const raw = getExprInput();
-          const expr = normalizeExprForA(raw, a);
-          let L;
-          try { const f=compileExprFn(expr); L=estimateLimitWithFn(f,a);} catch { L=estimateLimit(expr,a);} 
-          renderCompactTrainGraph(expr,a,L);
-        }
-      } catch{}
+      try { const tg = document.getElementById('trainGraph'); if (tg) tg.style.display = 'none'; } catch{}
     };
 
     // أدوات مساعدة لقراءة المجموعات { ... } في LaTeX
