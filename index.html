@@ -1178,6 +1178,8 @@
           const a = getApproachValue();
           const aText = getApproachLabel();
           const L = (function(){ try { const f = compileExprFn(expr); return estimateLimitWithFn(f, a);} catch { return estimateLimit(expr, a);} })();
+        // أظهر زر التحقق دائمًا في وضع التدريب
+        try { const checkBtn = document.getElementById('check'); if (checkBtn) checkBtn.style.display = ''; } catch{}
           res.innerHTML = `<div id='solutionGraph' class='fade-in' style='margin-bottom:8px;'></div><p class='fade-in'><strong>${STR[lang].limitAs} ${aText}:</strong> ~ ${L.toFixed(6)}</p>`;
           // Draw a compact, read-only solution graph beneath the answer
           try { renderSolutionGraph(expr, a, L); } catch {}
