@@ -250,7 +250,7 @@
         <button class="seg-btn active" data-mode="solve">احسب النهاية</button>
         <button class="seg-btn" data-mode="steps">عرض الخطوات</button>
         <button class="seg-btn" data-mode="game">وضع التدريب</button>
-        <button class="seg-btn" data-mode="calc">تفاضل/تكامل</button>
+        <button class="seg-btn" data-mode="calc">تكامل</button>
       </div>
     </div>
     <div class="glass-card">
@@ -345,13 +345,12 @@
     <br />
     <!-- سيتم نقل الدليل لأسفل الصفحة -->
 
-    <!-- بطاقة وضع التفاضل/التكامل المستقل -->
+    <!-- بطاقة وضع التكامل المستقل -->
     <div id="calcCard" class="glass-card" style="display:none; margin-top:16px;">
-      <h3>🔎 التفاضل والتكامل</h3>
+      <h3>🔎 التكامل</h3>
       <div class="row" style="gap:12px; align-items:center; flex-wrap:wrap;">
-        <div class="seg" id="calcModeSeg">
-          <button class="seg-btn active" data-calc="diff">تفاضل</button>
-          <button class="seg-btn" data-calc="int">تكامل</button>
+        <div class="seg" id="calcModeSeg" style="display:none;">
+          <button class="seg-btn active" data-calc="int">تكامل</button>
         </div>
         <div class="spacer"></div>
         <div class="seg" id="calcQualitySeg" title="الدقة (عدد النقاط)">
@@ -409,7 +408,7 @@
     let ansOrigParent = null, ansAnchor = null;
     // تعاريف مبكرة لقيم HUD لضمان توفرها قبل أي استدعاء
     let score = 0, attempts = [], streak = 0, correct = 0, total = 0;
-    // في وضع التفاضل/التكامل: bounds مستخرجة من صيغة \int في اللاتكس إن كتبها المستخدم مباشرة
+    // في وضع التكامل: bounds مستخرجة من صيغة \int في اللاتكس إن كتبها المستخدم مباشرة
     let calcLatexBounds = null;
     const REACTION_MSG_DEFAULT = {
       ar: {
@@ -455,7 +454,7 @@
       ar: {
         title: '🧮 نهايات المثلثات باستخدام ماكلورين',
         descBase: 'ركز فقط على sin , cos , tan عندما x → {a}',
-        descTag: '(التفاضل والتكامل)',
+        descTag: '(التكامل)',
         pointLabel: 'نقطة الاقتراب',
         limitAs: 'النهاية عند x→',
         exprLabel: 'التعبير (فقط sin وcos وtan والمتغير x)',
@@ -545,7 +544,7 @@
       if (btns[0]) btns[0].textContent = s.solve;
       if (btns[1]) btns[1].textContent = s.steps;
       if (btns[2]) btns[2].textContent = s.game;
-      if (btns[3]) btns[3].textContent = (lang==='ar'? 'تفاضل/تكامل' : 'Calculus');
+      if (btns[3]) btns[3].textContent = (lang==='ar'? 'تكامل' : 'Integration');
       // Graphing labels
       // تمت إزالة عناصر الرسم التفاعلي
       document.getElementById('guide').textContent = s.guide;
@@ -595,7 +594,7 @@
       return expr;
     }
 
-    // تعبيرات وضع التفاضل/التكامل: دعم دوال أوسع
+    // تعبيرات وضع التكامل: دعم دوال أوسع
     function sanitizeCalcExpr(expr){
       // يسمح بالأحرف والأرقام و x والعمليات ودوال: sin cos tan exp log ln sqrt abs
       const ok = /^[\s0-9x+\-*/().,A-Za-z_]*$/.test(expr);
@@ -614,7 +613,7 @@
       return s;
     }
 
-    // مدخلات وضع التفاضل/التكامل
+    // مدخلات وضع التكامل
     function getCalcExpr(){
       const mf = document.getElementById('calcMath');
       const tf = document.getElementById('calcText');
@@ -679,9 +678,9 @@
       }catch{ return null; }
     }
     function getCalcMode(){
-      const seg = document.getElementById('calcModeSeg'); if (!seg) return 'diff';
+      const seg = document.getElementById('calcModeSeg'); if (!seg) return 'int';
       const a = seg.querySelector('.seg-btn.active');
-      return a ? a.dataset.calc : 'diff';
+      return a ? a.dataset.calc : 'int';
     }
     function getCalcAt(){
       const t = document.getElementById('calcAt'); if (!t) return null;
@@ -706,94 +705,59 @@
         const expr = getCalcExpr();
         const raw = getCalcRaw();
         const safe = sanitizeCalcExpr(expr);
-        if (!safe) { if (out) out.innerHTML = `<p class='muted'>إدخال غير صالح للتفاضل/التكامل</p>`; return; }
+        if (!safe) { if (out) out.innerHTML = `<p class='muted'>إدخال غير صالح للتكامل</p>`; return; }
         const cm = getCalcMode();
-        if (cm === 'diff'){
-          const at = getCalcAt();
-          let latexD = '';
-          let valNum = null;
-          if (pyodideReady){
+        let F_latex = '';
+        let bounds = null;
+        let intVal = null;
+        if (pyodideReady){
+          try {
+            const r = await window.pyodide.runPythonAsync(`solve_calc(${JSON.stringify(raw)}, 'int', None)`);
+            const obj = (typeof r==='string')? JSON.parse(r): r;
+            if (obj) {
+              F_latex = obj.F_latex || F_latex;
+              if (Array.isArray(obj.bounds)) bounds = obj.bounds;
+              if (typeof obj.int_val === 'number' && Number.isFinite(obj.int_val)) intVal = obj.int_val;
+            }
+          } catch{}
+          if (!F_latex) { try { F_latex = await window.pyodide.runPythonAsync(`integral_latex(${JSON.stringify(expr)})`); } catch{} }
+        }
+        if (!bounds) bounds = (calcLatexBounds && calcLatexBounds.length===2) ? calcLatexBounds : null;
+        if (bounds){
+          if (intVal == null) {
             try {
-              const r = await window.pyodide.runPythonAsync(`solve_calc(${JSON.stringify(raw)}, 'diff', ${Number.isFinite(at)? at : 'None'})`);
-              const obj = (typeof r==='string')? JSON.parse(r): r;
-              if (obj && obj.D_latex) latexD = obj.D_latex;
-              if (obj && typeof obj.D_val === 'number' && Number.isFinite(obj.D_val)) valNum = obj.D_val;
-            } catch{}
-            if (!latexD) { try { latexD = await window.pyodide.runPythonAsync(`diff_latex(${JSON.stringify(expr)})`); } catch{} }
-          }
-          if (valNum == null && Number.isFinite(at)){
-            try {
-              let v = NaN;
-              if (pyodideReady) { v = await window.pyodide.runPythonAsync(`deriv_slope(${JSON.stringify(expr)}, ${at})`); }
-              if (!Number.isFinite(v)) {
-                const f = compileCalcExprFn(expr);
-                const h = 1e-5;
-                v = (f(at+h)-f(at-h))/(2*h);
-              }
-              if (Number.isFinite(v)) valNum = v;
-            } catch{}
-          }
-          const latexHtml = latexD? `<div>\\(\\dfrac{d}{dx}[f(x)] = ${latexD}\\)</div>` : '';
-          const valStr = (Number.isFinite(at) && Number.isFinite(valNum)) ? (lang==='ar'? `وقيمة المشتقة عند x=${at} هي ${(+valNum).toFixed(6)}` : `Derivative at x=${at} is ${(+valNum).toFixed(6)}`) : '';
-          if (out) {
-            out.innerHTML = `<div class='row' style='justify-content:space-between; align-items:center;'>${latexHtml}<button id="calcCopy" class="btn-outline" style="font-size:.9rem; padding:.25rem .6rem;">نسخ القيمة</button></div><div class='muted'>${valStr}</div>`;
-            try { const btn = out.querySelector('#calcCopy'); if (btn && Number.isFinite(valNum)) btn.setAttribute('data-val', String(valNum)); } catch{}
-            if (window.MathJax && MathJax.typesetPromise) MathJax.typesetPromise();
-          }
-          await renderCalcGraph(expr, { mode:'diff', at });
-        } else {
-          let F_latex = '';
-          let bounds = null;
-          let intVal = null;
-          if (pyodideReady){
-            try {
-              const r = await window.pyodide.runPythonAsync(`solve_calc(${JSON.stringify(raw)}, 'int', None)`);
-              const obj = (typeof r==='string')? JSON.parse(r): r;
-              if (obj) {
-                F_latex = obj.F_latex || F_latex;
-                if (Array.isArray(obj.bounds)) bounds = obj.bounds;
-                if (typeof obj.int_val === 'number' && Number.isFinite(obj.int_val)) intVal = obj.int_val;
+              if (pyodideReady){
+                const v = await window.pyodide.runPythonAsync(`integral_def_value(${JSON.stringify(expr)}, ${bounds[0]}, ${bounds[1]})`);
+                if (Number.isFinite(v)) intVal = v;
               }
             } catch{}
-            if (!F_latex) { try { F_latex = await window.pyodide.runPythonAsync(`integral_latex(${JSON.stringify(expr)})`); } catch{} }
-          }
-          if (!bounds) bounds = (calcLatexBounds && calcLatexBounds.length===2) ? calcLatexBounds : null;
-          if (bounds){
-            if (intVal == null) {
+            if (intVal == null){
               try {
-                if (pyodideReady){
-                  const v = await window.pyodide.runPythonAsync(`integral_def_value(${JSON.stringify(expr)}, ${bounds[0]}, ${bounds[1]})`);
-                  if (Number.isFinite(v)) intVal = v;
+                const f = compileCalcExprFn(expr);
+                const a = bounds[0], b = bounds[1];
+                if (a === b) intVal = 0; else {
+                  const n = 2048; const h = (b-a)/n; let sum = 0;
+                  let y0 = f(a), yN = f(b);
+                  for (let i=1;i<n;i++){ const x=a+i*h; const y=f(x); sum += (i%2===0? 2*y : 4*y); }
+                  let val = (h/3)*(y0 + yN + sum);
+                  if (!Number.isFinite(val)) {
+                    sum = 0; for (let i=1;i<n;i++){ sum += f(a+i*h); }
+                    val = h*((y0+yN)/2 + sum);
+                  }
+                  if (Number.isFinite(val)) intVal = val;
                 }
               } catch{}
-              if (intVal == null){
-                try {
-                  const f = compileCalcExprFn(expr);
-                  const a = bounds[0], b = bounds[1];
-                  if (a === b) intVal = 0; else {
-                    const n = 2048; const h = (b-a)/n; let sum = 0;
-                    let y0 = f(a), yN = f(b);
-                    for (let i=1;i<n;i++){ const x=a+i*h; const y=f(x); sum += (i%2===0? 2*y : 4*y); }
-                    let val = (h/3)*(y0 + yN + sum);
-                    if (!Number.isFinite(val)) {
-                      sum = 0; for (let i=1;i<n;i++){ sum += f(a+i*h); }
-                      val = h*((y0+yN)/2 + sum);
-                    }
-                    if (Number.isFinite(val)) intVal = val;
-                  }
-                } catch{}
-              }
             }
           }
-          const latexHtml = F_latex? `<div>\\(F(x) = ${F_latex}\\)</div>` : '';
-          const areaStr = (bounds && Number.isFinite(intVal)) ? (lang==='ar'? `قيمة التكامل من ${bounds[0]} إلى ${bounds[1]} ≈ ${(+intVal).toFixed(6)}` : `∫ from ${bounds[0]} to ${bounds[1]} ≈ ${(+intVal).toFixed(6)}`) : '';
-          if (out) {
-            out.innerHTML = `<div class='row' style='justify-content:space-between; align-items:center;'>${latexHtml}<button id="calcCopy" class="btn-outline" style="font-size:.9rem; padding:.25rem .6rem;">نسخ القيمة</button></div><div class='muted'>${areaStr}</div>`;
-            try { const btn = out.querySelector('#calcCopy'); if (btn && Number.isFinite(intVal)) btn.setAttribute('data-val', String(intVal)); } catch{}
-            if (window.MathJax && MathJax.typesetPromise) MathJax.typesetPromise();
-          }
-          await renderCalcGraph(expr, { mode:'int', bounds });
         }
+        const latexHtml = F_latex? `<div>\\(F(x) = ${F_latex}\\)</div>` : '';
+        const areaStr = (bounds && Number.isFinite(intVal)) ? (lang==='ar'? `قيمة التكامل من ${bounds[0]} إلى ${bounds[1]} ≈ ${(+intVal).toFixed(6)}` : `∫ from ${bounds[0]} to ${bounds[1]} ≈ ${(+intVal).toFixed(6)}`) : '';
+        if (out) {
+          out.innerHTML = `<div class='row' style='justify-content:space-between; align-items:center;'>${latexHtml}<button id="calcCopy" class="btn-outline" style="font-size:.9rem; padding:.25rem .6rem;">نسخ القيمة</button></div><div class='muted'>${areaStr}</div>`;
+          try { const btn = out.querySelector('#calcCopy'); if (btn && Number.isFinite(intVal)) btn.setAttribute('data-val', String(intVal)); } catch{}
+          if (window.MathJax && MathJax.typesetPromise) MathJax.typesetPromise();
+        }
+        await renderCalcGraph(expr, { mode:'int', bounds });
       } catch(err){ if (out) out.innerHTML = `<p class='muted'>حدث خطأ أثناء الحساب</p>`; }
     }
 
@@ -1320,9 +1284,9 @@
       try { const pfc = document.getElementById('point-field-container'); if (pfc) pfc.style.display = 'none'; } catch{}
       try { setRandomApproach(); } catch{}
       try { updateApproachHUD(); } catch{}
-      // تحميل SymPy لوضع التفاضل/التكامل
+      // تحميل SymPy لوضع التكامل
       initSymPy();
-      // ربط وضع التفاضل/التكامل
+      // ربط وضع التكامل
       try {
         const seg = document.getElementById('calcModeSeg');
         if (seg) seg.addEventListener('click', function(e){
@@ -1331,8 +1295,8 @@
           const mode = b.dataset.calc;
           const atRow = document.getElementById('calcAtRow');
           const bRow = document.getElementById('calcBoundsRow');
-          if (mode==='diff') { if (atRow) atRow.style.display=''; if (bRow) bRow.style.display='none'; }
-          else { if (atRow) atRow.style.display='none'; if (bRow) bRow.style.display=''; }
+          if (atRow) atRow.style.display='none'; 
+          if (bRow) bRow.style.display='';
         });
       } catch{}
       try {
