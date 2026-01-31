@@ -597,11 +597,15 @@
     // تعبيرات وضع التكامل: دعم دوال أوسع
     function sanitizeCalcExpr(expr){
       // يسمح بالأحرف والأرقام و x والعمليات ودوال: sin cos tan exp log ln sqrt abs
-      const ok = /^[\s0-9x+\-*/().,A-Za-z_]*$/.test(expr);
+      const ok = /^[\s0-9x+\-*/().,A-Za-z_\[\]]*$/.test(expr);
       if (!ok) return null;
-      let s = expr;
+      let s = String(expr||'');
       s = s.replace(/\^/g, '**');
-      // map ln->log
+      // constants
+      s = s.replace(/\bpi\b/gi, 'Math.PI');
+      s = s.replace(/\bPI\b/g, 'Math.PI');
+      s = s.replace(/\bE\b/g, 'Math.E');
+      // functions
       s = s.replace(/\bln\s*\(/g, 'Math.log(');
       s = s.replace(/\blog\s*\(/g, 'Math.log(');
       s = s.replace(/\bexp\s*\(/g, 'Math.exp(');
@@ -609,7 +613,10 @@
       s = s.replace(/\babs\s*\(/g, 'Math.abs(');
       s = s.replace(/\bsin\s*\(/g, 'Math.sin(')
              .replace(/\bcos\s*\(/g, 'Math.cos(')
-             .replace(/\btan\s*\(/g, 'Math.tan(');
+             .replace(/\btan\s*\(/g, 'Math.tan(')
+             .replace(/\basin\s*\(/g, 'Math.asin(')
+             .replace(/\bacos\s*\(/g, 'Math.acos(')
+             .replace(/\batan\s*\(/g, 'Math.atan(');
       return s;
     }
 
@@ -646,27 +653,70 @@
       } catch {}
       try { const tf = document.getElementById('calcText'); return String(tf ? tf.value||'' : ''); } catch { return ''; }
     }
+    /**
+     * دالة محسّنة لتنظيف مدخلات التكامل
+     * تحذف رموز d, dx, du, dθ وتستخرج الدالة فقط
+     * @param {string} integrand - النص الخام للدالة المراد تكاملها
+     * @returns {string} - الدالة بعد التنظيف
+     */
+    function sanitizeIntegralInput(integrand) {
+      if (!integrand) return '';
+      let cleaned = String(integrand).trim();
+
+      // أنماط شائعة لرموز التفاضل في نهاية التكامل
+      const patterns = [
+        /\s*\\,?\s*d\s*[a-z]\s*$/i,                         // dx أو d x
+        /\s*d\s*[a-z]\s*$/i,                                   // dx بدون فواصل
+        /\s*\\mathrm\s*\{\s*dx\s*\}\s*$/i,                // \mathrm{dx}
+        /\s*\\mathrm\s*\{\s*d\s*\}\s*[a-z]\s*$/i,        // \mathrm{d}x
+        /\s*\\,?\s*\\mathrm\s*d\s*[a-z]\s*$/i,           // \mathrm d x (بدون أقواس)
+        /\s*\\,?\s*d\s*\\theta\s*$/i,                     // d\theta (زاوية)
+        /\s*\\,?\s*d\s*\p{L}+\s*$/iu                       // d + أي حرف Unicode (يدعم متغيرات يونانية)
+      ];
+
+      let prev;
+      do {
+        prev = cleaned;
+        for (const rgx of patterns) cleaned = cleaned.replace(rgx, '');
+        cleaned = cleaned.trim();
+      } while (cleaned !== prev); // كرر حتى تختفي جميع الرموز في النهاية
+
+      return cleaned;
+    }
+
+    /**
+     * دالة محسّنة لاستخراج التكامل من LaTeX
+     * تتعامل مع التكامل المحدد وغير المحدد بشكل صحيح
+     */
     function extractIntegralFromLatex(lx){
       try{
         let s = String(lx||'');
         s = s.replace(/\\,/g,' ').replace(/\\!/g,' ');
         const i = s.indexOf('\\int'); if (i<0) return null; let rest = s.slice(i+4).trim();
         let aTxt=null,bTxt=null;
-        // lower bound: _{...} أو _a
-        let mA = rest.match(/^_\{([^}]*)\}/);
-        if (mA) { aTxt = mA[1]; rest = rest.slice(mA[0].length).trim(); }
-        else { mA = rest.match(/^_([^\s\^]+)/); if (mA) { aTxt = mA[1]; rest = rest.slice(mA[0].length).trim(); } }
-        // upper bound: ^{...} أو ^b
-        let mB = rest.match(/^\^\{([^}]*)\}/);
-        if (mB) { bTxt = mB[1]; rest = rest.slice(mB[0].length).trim(); }
-        else { mB = rest.match(/^\^([^\s_]+)/); if (mB) { bTxt = mB[1]; rest = rest.slice(mB[0].length).trim(); } }
-        // integrand up to dx (take last occurrence to be safer)
-        // أزل \mathrm{dx} إن وُجدت
-        rest = rest.replace(/\\mathrm\s*\{\s*dx\s*\}/g, 'dx');
-        let idx = rest.lastIndexOf('dx'); if (idx<0) idx = rest.lastIndexOf('d x');
-        let integrand = (idx>0? rest.slice(0, idx): rest).trim();
-        if (integrand.startsWith('(') && integrand.endsWith(')')) integrand = integrand.slice(1,-1).trim();
-        let exprJS = latexToJSExprCached(integrand).replace(/Math\./g,'');
+        // قراءة الحدود (يمكن أن تأتي بأي ترتيب: ^ ثم _ أو العكس)
+        while (true) {
+          // lower bound: _{...} أو _a
+          let mLower = rest.match(/^_\{([^}]*)\}/);
+          if (mLower) { aTxt = mLower[1]; rest = rest.slice(mLower[0].length).trim(); continue; }
+          mLower = rest.match(/^_([^\s\^]+)/);
+          if (mLower) { aTxt = mLower[1]; rest = rest.slice(mLower[0].length).trim(); continue; }
+          // upper bound: ^{...} أو ^b
+          let mUpper = rest.match(/^\^\{([^}]*)\}/);
+          if (mUpper) { bTxt = mUpper[1]; rest = rest.slice(mUpper[0].length).trim(); continue; }
+          mUpper = rest.match(/^\^([^\s_]+)/);
+          if (mUpper) { bTxt = mUpper[1]; rest = rest.slice(mUpper[0].length).trim(); continue; }
+          break; // لا مزيد من الحدود في البداية
+        }
+
+        // استخدام دالة التنظيف الجديدة لإزالة dx وما شابه
+        rest = sanitizeIntegralInput(rest);
+        
+        // إزالة الأقواس الخارجية إن وُجدت
+        if (rest.startsWith('(') && rest.endsWith(')')) rest = rest.slice(1,-1).trim();
+        
+        let exprJS = latexToJSExprCached(rest).replace(/Math\./g,'');
+        
         // bounds numeric values
         let bounds=null; 
         if (aTxt!=null && bTxt!=null){
@@ -699,17 +749,65 @@
       return [va, vb];
     }
 
+    /**
+     * دالة محسّنة لمعالجة التكامل
+     * تتحقق من نوع التكامل (محدد أو غير محدد) وتتعامل معه بشكل صحيح
+     */
     async function handleCalcRun(){
       const out = document.getElementById('calcResult'); if (out) out.innerHTML = '';
+      const calcAtField = document.getElementById('calcAt');
+      const calcAtRow = document.getElementById('calcAtRow');
+      
       try {
         const expr = getCalcExpr();
         const raw = getCalcRaw();
         const safe = sanitizeCalcExpr(expr);
-        if (!safe) { if (out) out.innerHTML = `<p class='muted'>إدخال غير صالح للتكامل</p>`; return; }
+        // Fallback: إذا فشل التنظيف جرب استخراج التكامل من LaTeX مباشرة
+        let exprFixed = expr, boundsFixed = null;
+        if (!safe && /\\int/.test(String(raw||''))) {
+          try {
+            const ex = extractIntegralFromLatex(String(raw||''));
+            if (ex && ex.expr) {
+              exprFixed = ex.expr;
+              boundsFixed = Array.isArray(ex.bounds) ? ex.bounds : null;
+            }
+          } catch {}
+        }
+        const safe2 = sanitizeCalcExpr(exprFixed);
+        if (!safe && safe2) {
+          // استخدم البديل
+          calcLatexBounds = boundsFixed;
+        }
+        if (!safe && !safe2) { if (out) out.innerHTML = `<p class='muted'>إدخال غير صالح للتكامل</p>`; return; }
+        const effectiveExpr = safe2 ? exprFixed : expr;
         const cm = getCalcMode();
         let F_latex = '';
         let bounds = null;
         let intVal = null;
+        
+        // استخراج الحدود من LaTeX إن وُجدت
+        if (!bounds) bounds = (calcLatexBounds && calcLatexBounds.length===2) ? calcLatexBounds : null;
+        
+        // تحديد نوع التكامل
+        const isDefiniteIntegral = (bounds !== null);
+        
+        // إخفاء/إظهار حقل "عند x" بناءً على نوع التكامل
+        if (isDefiniteIntegral) {
+          // تكامل محدد: إخفاء حقل "عند x" وتجاهل قيمته
+          if (calcAtRow) calcAtRow.style.opacity = '0.4';
+          if (calcAtField) {
+            calcAtField.style.pointerEvents = 'none';
+            calcAtField.placeholder = (lang === 'ar') ? 'غير مطلوب (تكامل محدد)' : 'Not needed (definite integral)';
+          }
+        } else {
+          // تكامل غير محدد: إظهار حقل "عند x"
+          if (calcAtRow) calcAtRow.style.opacity = '1';
+          if (calcAtField) {
+            calcAtField.style.pointerEvents = 'auto';
+            calcAtField.placeholder = (lang === 'ar') ? 'مثال: 0 أو pi/4' : 'e.g., 0 or pi/4';
+          }
+        }
+        
         if (pyodideReady){
           try {
             const r = await window.pyodide.runPythonAsync(`solve_calc(${JSON.stringify(raw)}, 'int', None)`);
@@ -720,20 +818,23 @@
               if (typeof obj.int_val === 'number' && Number.isFinite(obj.int_val)) intVal = obj.int_val;
             }
           } catch{}
-          if (!F_latex) { try { F_latex = await window.pyodide.runPythonAsync(`integral_latex(${JSON.stringify(expr)})`); } catch{} }
+          if (!F_latex) { try { F_latex = await window.pyodide.runPythonAsync(`integral_latex(${JSON.stringify(effectiveExpr)})`); } catch{} }
         }
+        
+        // إعادة التحقق بعد معالجة Python
         if (!bounds) bounds = (calcLatexBounds && calcLatexBounds.length===2) ? calcLatexBounds : null;
+        
         if (bounds){
           if (intVal == null) {
             try {
               if (pyodideReady){
-                const v = await window.pyodide.runPythonAsync(`integral_def_value(${JSON.stringify(expr)}, ${bounds[0]}, ${bounds[1]})`);
+                const v = await window.pyodide.runPythonAsync(`integral_def_value(${JSON.stringify(effectiveExpr)}, ${bounds[0]}, ${bounds[1]})`);
                 if (Number.isFinite(v)) intVal = v;
               }
             } catch{}
             if (intVal == null){
               try {
-                const f = compileCalcExprFn(expr);
+                const f = compileCalcExprFn(effectiveExpr);
                 const a = bounds[0], b = bounds[1];
                 if (a === b) intVal = 0; else {
                   const n = 2048; const h = (b-a)/n; let sum = 0;
@@ -757,7 +858,7 @@
           try { const btn = out.querySelector('#calcCopy'); if (btn && Number.isFinite(intVal)) btn.setAttribute('data-val', String(intVal)); } catch{}
           if (window.MathJax && MathJax.typesetPromise) MathJax.typesetPromise();
         }
-        await renderCalcGraph(expr, { mode:'int', bounds });
+        await renderCalcGraph(effectiveExpr, { mode:'int', bounds });
       } catch(err){ if (out) out.innerHTML = `<p class='muted'>حدث خطأ أثناء الحساب</p>`; }
     }
 
@@ -1837,7 +1938,22 @@
     x = sp.symbols('x')
 
     def parse_expr(s):
-      return sp.sympify(s, locals={'x': x, 'sin': sp.sin, 'cos': sp.cos, 'tan': sp.tan, 'exp': sp.exp, 'log': sp.log, 'ln': sp.log, 'sqrt': sp.sqrt, 'Abs': sp.Abs, 'abs': sp.Abs})
+      # دعم موسّع للدوال والثوابت لتغطية معظم معادلات التكامل
+      return sp.sympify(s, locals={
+        'x': x,
+        # basic trig
+        'sin': sp.sin, 'cos': sp.cos, 'tan': sp.tan,
+        'asin': sp.asin, 'acos': sp.acos, 'atan': sp.atan,
+        # hyperbolic
+        'sinh': sp.sinh, 'cosh': sp.cosh, 'tanh': sp.tanh,
+        # reciprocal trig (SymPy يوفرها)
+        'sec': sp.sec, 'csc': sp.csc, 'cot': sp.cot,
+        # exp/log/sqrt/abs
+        'exp': sp.exp, 'log': sp.log, 'ln': sp.log, 'sqrt': sp.sqrt,
+        'Abs': sp.Abs, 'abs': sp.Abs,
+        # constants
+        'pi': sp.pi, 'Pi': sp.pi, 'E': sp.E
+      })
 
     def deriv_slope(s, x0):
       f = parse_expr(s)

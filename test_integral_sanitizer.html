@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>مثال تنظيف مدخلات التكامل</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      max-width: 800px;
+      margin: 50px auto;
+      padding: 20px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+    }
+    .card {
+      background: white;
+      border-radius: 15px;
+      padding: 30px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    }
+    h1 {
+      color: #667eea;
+      text-align: center;
+    }
+    .test-case {
+      background: #f8f9fa;
+      padding: 15px;
+      margin: 15px 0;
+      border-radius: 10px;
+      border-left: 4px solid #667eea;
+    }
+    .input {
+      font-family: 'Courier New', monospace;
+      color: #e74c3c;
+      font-weight: bold;
+    }
+    .output {
+      font-family: 'Courier New', monospace;
+      color: #27ae60;
+      font-weight: bold;
+    }
+    .label {
+      font-weight: bold;
+      color: #555;
+    }
+    button {
+      background: #667eea;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 16px;
+      display: block;
+      margin: 20px auto;
+    }
+    button:hover {
+      background: #764ba2;
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+    }
+    #results {
+      margin-top: 20px;
+    }
+    .success {
+      color: #27ae60;
+      font-weight: bold;
+    }
+    .fail {
+      color: #e74c3c;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>🔬 اختبار دالة تنظيف مدخلات التكامل</h1>
+    <p style="text-align: center; color: #666;">
+      هذه الصفحة تعرض كيف تعمل دالة <code>sanitizeIntegralInput()</code>
+    </p>
+
+    <button onclick="runTests()">▶️ تشغيل الاختبارات</button>
+
+    <div id="results"></div>
+  </div>
+
+  <script>
+    /**
+     * دالة محسّنة لتنظيف مدخلات التكامل
+     * تحذف رموز d, dx, du, dθ وتستخرج الدالة فقط
+     */
+    function sanitizeIntegralInput(integrand) {
+      if (!integrand) return '';
+      let cleaned = String(integrand).trim();
+      
+      // حذف رموز التكامل الشائعة: dx, du, dt, dθ, d x, d u إلخ
+      cleaned = cleaned.replace(/\s*\\,?\s*d\s*[a-z]\s*$/i, ''); // مثل dx في النهاية
+      cleaned = cleaned.replace(/\s*d\s*[a-z]\s*$/i, ''); // مثل dx بدون مسافة
+      cleaned = cleaned.replace(/\s*\\mathrm\s*\{\s*d\s*[a-z]\s*\}\s*$/i, ''); // مثل \mathrm{dx}
+      
+      // حذف d منفردة في النهاية
+      cleaned = cleaned.replace(/\s*\\,?\s*d\s*$/i, '');
+      
+      return cleaned.trim();
+    }
+
+    // حالات اختبار متنوعة
+    const testCases = [
+      { input: '5 dx', expected: '5', description: 'رقم بسيط مع dx' },
+      { input: '5dx', expected: '5', description: 'رقم بسيط مع dx بدون مسافة' },
+      { input: 'x^2 dx', expected: 'x^2', description: 'دالة أسية مع dx' },
+      { input: 'sin(x) dx', expected: 'sin(x)', description: 'دالة مثلثية مع dx' },
+      { input: '\\sin(x) \\, dx', expected: '\\sin(x)', description: 'LaTeX مع مسافة صغيرة' },
+      { input: 'x^2 + 2x + 1 dx', expected: 'x^2 + 2x + 1', description: 'دالة معقدة مع dx' },
+      { input: 'e^x du', expected: 'e^x', description: 'أسي مع du' },
+      { input: 'cos(t) dt', expected: 'cos(t)', description: 'دالة مع dt' },
+      { input: 'x^2 \\mathrm{dx}', expected: 'x^2', description: 'LaTeX مع \\mathrm{dx}' },
+      { input: '5 \\, dx', expected: '5', description: 'رقم مع \\, dx' },
+      { input: '\\frac{1}{x} dx', expected: '\\frac{1}{x}', description: 'كسر LaTeX' },
+      { input: '5', expected: '5', description: 'رقم بدون dx (لا يتغير)' },
+      { input: 'sin(x)', expected: 'sin(x)', description: 'دالة بدون dx (لا تتغير)' }
+    ];
+
+    function runTests() {
+      const resultsDiv = document.getElementById('results');
+      resultsDiv.innerHTML = '<h2 style="text-align: center;">📊 نتائج الاختبارات</h2>';
+
+      let passed = 0;
+      let failed = 0;
+
+      testCases.forEach((test, index) => {
+        const result = sanitizeIntegralInput(test.input);
+        const success = result === test.expected;
+
+        if (success) passed++;
+        else failed++;
+
+        const testDiv = document.createElement('div');
+        testDiv.className = 'test-case';
+        testDiv.innerHTML = `
+          <div style="margin-bottom: 8px;">
+            <span style="background: #667eea; color: white; padding: 3px 8px; border-radius: 5px; font-size: 12px;">
+              اختبار ${index + 1}
+            </span>
+            <span style="float: left;" class="${success ? 'success' : 'fail'}">
+              ${success ? '✅ نجح' : '❌ فشل'}
+            </span>
+          </div>
+          <div class="label">الوصف:</div>
+          <div style="margin-bottom: 10px;">${test.description}</div>
+          
+          <div class="label">المدخل:</div>
+          <div class="input">"${test.input}"</div>
+          
+          <div class="label">المتوقع:</div>
+          <div style="color: #3498db; font-family: 'Courier New', monospace;">"${test.expected}"</div>
+          
+          <div class="label">الناتج:</div>
+          <div class="output">"${result}"</div>
+          
+          ${!success ? `<div style="margin-top: 10px; padding: 10px; background: #ffe6e6; border-radius: 5px; color: #c0392b;">⚠️ النتيجة لا تطابق المتوقع!</div>` : ''}
+        `;
+        resultsDiv.appendChild(testDiv);
+      });
+
+      // ملخص النتائج
+      const summaryDiv = document.createElement('div');
+      summaryDiv.style.cssText = 'background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 10px; text-align: center; margin-top: 20px;';
+      summaryDiv.innerHTML = `
+        <h3 style="margin: 0 0 10px 0;">📈 الملخص النهائي</h3>
+        <div style="font-size: 24px;">
+          <span style="color: #4ecca3;">✅ ${passed}</span> نجح  |  
+          <span style="color: #ff6b6b;">❌ ${failed}</span> فشل
+        </div>
+        <div style="margin-top: 10px; font-size: 18px;">
+          نسبة النجاح: ${((passed / testCases.length) * 100).toFixed(1)}%
+        </div>
+      `;
+      resultsDiv.appendChild(summaryDiv);
+    }
+  </script>
+</body>
+</html>
